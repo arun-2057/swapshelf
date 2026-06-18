@@ -1,0 +1,148 @@
+// SwapShelf — Prisma schema
+// Hyper-local media exchange for books & board games
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  bio          String?
+  avatarUrl    String?
+  latitude     Float
+  longitude    Float
+  zipCode      String?
+  neighborhood String?
+  swapScore    Int      @default(50)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items       Item[]
+  loansBorrowed Loan[]  @relation("BorrowerLoans")
+  loansLent   Loan[]    @relation("LenderLoans")
+  messages    Message[]
+  reviewsGiven Review[]  @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+}
+
+enum ItemType {
+  BOOK
+  BOARD_GAME
+}
+
+enum ItemCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  WORN
+}
+
+enum ItemStatus {
+  AVAILABLE
+  REQUESTED
+  IN_TRANSIT
+  BORROWED
+  RETURNED
+  REMOVED
+}
+
+model Item {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type       ItemType
+  title      String
+  creator    String? // author for books, designer for games
+  isbn       String? // isbn for books, upc for games
+  imageUrl   String?
+  condition  ItemCondition @default(GOOD)
+  description String?
+  status     ItemStatus @default(AVAILABLE)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  loans Loan[]
+}
+
+enum LoanStatus {
+  REQUESTED
+  ACCEPTED
+  DECLINED
+  MEETING_SCHEDULED
+  BORROWED
+  OVERDUE
+  RETURNED
+  CANCELLED
+}
+
+model Loan {
+  id           String   @id @default(cuid())
+  itemId       String
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  borrowerId   String
+  borrower     User     @relation("BorrowerLoans", fields: [borrowerId], references: [id])
+  lenderId     String
+  lender       User     @relation("LenderLoans", fields: [lenderId], references: [id])
+  status       LoanStatus @default(REQUESTED)
+  startDate    DateTime?
+  dueDate      DateTime?
+  returnedDate DateTime?
+  proposedReturnDate DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages Message[]
+  reviews Review[]
+  meetup  MeetupSpot?
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  loanId    String
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  text      String
+  systemEvent String? // e.g. "loan:accepted", "meetup:proposed"
+  createdAt DateTime @default(now())
+}
+
+model MeetupSpot {
+  id          String   @id @default(cuid())
+  loanId      String   @unique
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  suggestedBy String
+  agreedBy    String?
+  status      String   @default("proposed") // proposed | agreed | updated
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  loanId       String
+  loan         Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  reviewerId   String
+  reviewer     User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId   String
+  reviewee     User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  rating       Int // 1-5
+  comment      String?
+  isRevealed   Boolean  @default(false) // hidden until both submit
+  createdAt    DateTime @default(now())
+
+  @@unique([loanId, reviewerId])
+}
