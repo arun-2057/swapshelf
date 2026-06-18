@@ -15,6 +15,7 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  sessionToken String?  @unique
   bio          String?
   avatarUrl    String?
   latitude     Float
