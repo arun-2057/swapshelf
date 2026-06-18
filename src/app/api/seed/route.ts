@@ -285,8 +285,18 @@ export const POST = withErrorHandler(async () => {
   for (const n of neighbors) {
     const lat = centerLat + n.offsetLat;
     const lon = centerLon + n.offsetLon;
-    const user = await db.user.create({
-      data: {
+
+    // Upsert: reuse the neighbor if they already exist (from a previous
+    // user's seed), just reposition them near this user. Create fresh
+    // only if they don't exist yet.
+    const user = await db.user.upsert({
+      where: { email: n.email },
+      update: {
+        latitude: lat,
+        longitude: lon,
+        neighborhood: n.neighborhood,
+      },
+      create: {
         name: n.name,
         email: n.email,
         passwordHash: hashPassword("swapshelf-demo"),
@@ -299,18 +309,22 @@ export const POST = withErrorHandler(async () => {
       },
     });
 
-    for (const it of n.items) {
-      await db.item.create({
-        data: {
-          ownerId: user.id,
-          title: it.title,
-          type: it.type,
-          creator: it.creator,
-          condition: it.condition,
-          imageUrl: ph(it.title, it.seed),
-          status: "AVAILABLE",
-        },
-      });
+    // Only create items if this neighbor doesn't have any yet
+    const itemCount = await db.item.count({ where: { ownerId: user.id } });
+    if (itemCount === 0) {
+      for (const it of n.items) {
+        await db.item.create({
+          data: {
+            ownerId: user.id,
+            title: it.title,
+            type: it.type,
+            creator: it.creator,
+            condition: it.condition,
+            imageUrl: ph(it.title, it.seed),
+            status: "AVAILABLE",
+          },
+        });
+      }
     }
 
     createdNeighbors.push(user);
@@ -321,7 +335,7 @@ export const POST = withErrorHandler(async () => {
 
   // Loan 1: I'm borrowing Maya's "Project Hail Mary"
   const mayaItem = await db.item.findFirst({
-    where: { ownerId: maya.id, title: "Project Hail Mary" },
+    where: { ownerId: maya.id, title: "Project Hail Mary", status: "AVAILABLE" },
   });
   if (mayaItem) {
     const loan1 = await db.loan.create({
@@ -388,7 +402,7 @@ export const POST = withErrorHandler(async () => {
 
   // Loan 2: Diego is borrowing my "Dune"
   const myDune = await db.item.findFirst({
-    where: { ownerId: me.id, title: "Dune" },
+    where: { ownerId: me.id, title: "Dune", status: "AVAILABLE" },
   });
   if (myDune) {
     const loan2 = await db.loan.create({

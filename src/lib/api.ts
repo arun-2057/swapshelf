@@ -8,16 +8,44 @@ import type {
   DiscoverFilters,
 } from "@/lib/types";
 
+// ---- Token management ----
+// We store the session token in localStorage and send it as an
+// x-session-token header on every request. This works in ALL browser
+// contexts — including cross-origin iframes (like the preview panel)
+// where sameSite cookies are silently dropped.
+const TOKEN_KEY = "swapshelf_token";
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(token: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearToken() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(
   url: string,
   options?: RequestInit
 ): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options?.headers as Record<string, string>) || {}),
+  };
+  if (token) {
+    headers["x-session-token"] = token;
+  }
+
   const res = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {}),
-    },
+    headers,
     credentials: "same-origin",
   });
   if (!res.ok) {
@@ -46,15 +74,24 @@ export const api = {
     request<User>("/api/auth/signup", {
       method: "POST",
       body: JSON.stringify(data),
+    }).then((user) => {
+      if (user.sessionToken) setToken(user.sessionToken);
+      return user;
     }),
 
   login: (data: { email: string; password: string }) =>
     request<User>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
+    }).then((user) => {
+      if (user.sessionToken) setToken(user.sessionToken);
+      return user;
     }),
 
-  logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+  logout: () => {
+    clearToken();
+    return request<void>("/api/auth/logout", { method: "POST" });
+  },
 
   me: () => request<User | null>("/api/auth/me"),
 

@@ -51,6 +51,8 @@ export const POST = withErrorHandler(async (req: Request) => {
   });
 
   await createSession(user.id);
-  const safe = stripSelfUser(user);
+  // Re-fetch so the sessionToken is present on the returned object
+  const withToken = await db.user.findUnique({ where: { id: user.id } });
+  const safe = stripSelfUser(withToken);
   return NextResponse.json(safe);
 });

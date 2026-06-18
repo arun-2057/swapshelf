@@ -1,19 +1,20 @@
 import { db } from "@/lib/db";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { randomUUID } from "crypto";
 
-// DB-backed sessions. We store a sessionToken directly on the User row
-// and look it up via a unique index. This survives dev-server
-// recompilations, module re-evaluations, and full server restarts —
-// unlike an in-memory Map, which Next.js dev mode can wipe between
-// requests when it recompiles route handlers.
+// DB-backed sessions with header-based auth.
+//
+// The token is stored on the User row (sessionToken, unique-indexed).
+// The client sends it as an `x-session-token` header on every request,
+// which works in ALL contexts — including cross-origin iframes like the
+// preview panel, where sameSite cookies are silently dropped by browsers.
+// We also set a cookie as a fallback for same-origin direct access.
 
 const SESSION_COOKIE = "swapshelf_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 // Simple synchronous-ish hashing for demo (NOT for production passwords)
 function hashPassword(password: string): string {
-  // Lightweight hash — demo only. Do not reuse in production.
   let h = 0x811c9dc5;
   const salted = `swapshelf::${password}::v1`;
   for (let i = 0; i < salted.length; i++) {
@@ -31,12 +32,11 @@ export { hashPassword };
 
 export async function createSession(userId: string): Promise<string> {
   const token = randomUUID();
-  // Persist the token on the user row so it survives server restarts
-  // and dev-mode module re-evaluations.
   await db.user.update({
     where: { id: userId },
     data: { sessionToken: token },
   });
+  // Also set a cookie for same-origin fallback
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -48,10 +48,13 @@ export async function createSession(userId: string): Promise<string> {
 }
 
 export async function destroySession(): Promise<void> {
+  // Try to clear the token from the DB via header or cookie
+  const h = await headers();
+  const headerToken = h.get("x-session-token");
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
+  const cookieToken = store.get(SESSION_COOKIE)?.value;
+  const token = headerToken || cookieToken;
   if (token) {
-    // Clear the token on the user row (if it still matches)
     await db.user
       .updateMany({
         where: { sessionToken: token },
@@ -63,14 +66,27 @@ export async function destroySession(): Promise<void> {
 }
 
 export async function getCurrentUser() {
+  // 1) Header-based auth — works in cross-origin iframes / preview panels
+  const h = await headers();
+  const headerToken = h.get("x-session-token");
+  if (headerToken) {
+    const user = await db.user.findUnique({
+      where: { sessionToken: headerToken },
+    });
+    if (user) return user;
+  }
+
+  // 2) Cookie fallback — works for same-origin direct browser access
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  // Look the user up by their session token — a single indexed query.
-  const user = await db.user.findUnique({
-    where: { sessionToken: token },
-  });
-  return user;
+  const cookieToken = store.get(SESSION_COOKIE)?.value;
+  if (cookieToken) {
+    const user = await db.user.findUnique({
+      where: { sessionToken: cookieToken },
+    });
+    if (user) return user;
+  }
+
+  return null;
 }
 
 export async function requireUser() {

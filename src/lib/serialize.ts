@@ -19,6 +19,7 @@ export interface SelfUser extends PublicUser {
   latitude: number;
   longitude: number;
   zipCode?: string | null;
+  sessionToken?: string | null;
 }
 
 /**
@@ -59,6 +60,7 @@ export function stripSelfUser(u: User | null | undefined): SelfUser | null {
     latitude: u.latitude,
     longitude: u.longitude,
     zipCode: u.zipCode,
+    sessionToken: u.sessionToken,
   };
 }
 

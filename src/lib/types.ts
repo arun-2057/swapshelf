@@ -29,6 +29,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  passwordHash?: string;
+  sessionToken?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
   latitude: number;

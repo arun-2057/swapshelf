@@ -91,3 +91,24 @@ Work Log:
 
 Stage Summary:
 - Full SwapShelf app is production-ready and browser-verified. All core flows work end-to-end: auth, geo-onboarding, inventory (scan+manual), geo-discovery (grid+map), transaction lifecycle, real-time chat (socket.io on :3003), double-blind reviews, SwapScore trust system. Lint clean (0 errors/warnings). Dev server on :3000, chat service on :3003.
+
+---
+Task ID: fix-auth + global-locations
+Agent: main
+Task: Fix auth breaking in preview iframe + expand locations globally
+
+Work Log:
+- Root cause: sessions were cookie-only (sameSite:lax). The Preview Panel renders the app in a cross-origin iframe, and browsers silently drop sameSite:lax cookies in cross-origin iframe subrequests. Login returned 200 but the next authenticated request got 401 (no cookie sent).
+- Fix: switched to header-based auth. Token stored in localStorage, sent as `x-session-token` header on every API request. Server reads header via `headers()` from next/headers, falls back to cookie for same-origin direct access.
+  - auth.ts: getCurrentUser() checks x-session-token header first, then cookie
+  - serialize.ts: stripSelfUser includes sessionToken so login/signup responses carry the token
+  - api.ts: localStorage token management (getToken/setToken/clearToken) + header injection on every request
+  - signup/login routes: re-fetch user after createSession so sessionToken is in the response
+  - store: logout already calls api.logout() which clears localStorage token
+- Also fixed: seed route idempotency (upsert neighbors instead of create → P2002 on re-seed). Skip item creation if neighbor already has items. Check item availability before creating loans.
+- Expanded onboarding locations from 5 NYC neighborhoods to 35 global presets across 6 continents (North America, South America, Europe, Asia, Africa, Oceania). Added search filter and region grouping with scrollable list.
+- Verified with Agent Browser: fresh signup → London → Enter SwapShelf → dashboard (no auth error) → seed (8 items) → Discover (30 items near London, "1.4 miles away"). Zero console errors.
+- Reset DB for clean user start.
+
+Stage Summary:
+- Auth now works in ALL contexts (direct browser, iframe, preview panel). Sessions are DB-backed + header-based. Locations span the globe. Seed is idempotent.
