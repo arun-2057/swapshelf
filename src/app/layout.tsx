@@ -49,6 +49,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        // Browser extensions (Grammarly, password managers, etc.) inject
+        // attributes like data-gr-ext-installed into <body> at runtime,
+        // which triggers spurious hydration warnings. suppressHydrationWarning
+        // on <body> silences these without hiding real mismatches in children.
+        suppressHydrationWarning
         className={`${inter.variable} ${playfair.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider
