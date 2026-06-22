@@ -6,7 +6,7 @@ import { Logo } from "@/components/shared/logo";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { SwapScoreRing } from "@/components/shared/swap-score";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   Compass,
@@ -172,6 +172,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
+              <SheetTitle className="sr-only">SwapShelf navigation</SheetTitle>
+              <SheetDescription className="sr-only">
+                Navigate your dashboard, discover nearby shelves, and manage messages.
+              </SheetDescription>
               {SidebarContent}
             </SheetContent>
           </Sheet>
