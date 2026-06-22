@@ -23,6 +23,7 @@ model User {
   zipCode      String?
   neighborhood String?
   swapScore    Int      @default(50)
+  frozen       Boolean  @default(false) // true if account is suspended (e.g. stolen item)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -53,6 +54,7 @@ enum ItemStatus {
   IN_TRANSIT
   BORROWED
   RETURNED
+  STOLEN
   REMOVED
 }
 
@@ -68,6 +70,7 @@ model Item {
   condition  ItemCondition @default(GOOD)
   description String?
   status     ItemStatus @default(AVAILABLE)
+  flagged    Boolean  @default(false) // true while a return is disputed or stolen
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -82,6 +85,7 @@ enum LoanStatus {
   BORROWED
   OVERDUE
   RETURNED
+  STOLEN
   CANCELLED
 }
 

@@ -34,6 +34,7 @@ import {
   HandHelping,
   Star,
   Shield,
+  ShieldAlert,
   Wifi,
   WifiOff,
   CalendarDays,
@@ -186,8 +187,8 @@ const lifecycleSteps: { status: LoanStatus; label: string; icon: typeof CircleDo
 
 function statusIndex(status: LoanStatus): number {
   const idx = lifecycleSteps.findIndex((s) => s.status === status);
-  if (status === "DECLINED" || status === "CANCELLED") return -1;
-  if (status === "OVERDUE") return 3;
+  if (status === "DECLINED" || status === "CANCELLED" || status === "STOLEN") return -1;
+  if (status === "OVERDUE" || status === "DUE_SOON" || status === "DISPUTED") return 3;
   return idx < 0 ? 0 : idx;
 }
 
@@ -364,6 +365,17 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
         isBorrower={!!isBorrower}
         onUpdateStatus={updateStatus}
         onReview={() => setReviewOpen(true)}
+        onReportStolen={async () => {
+          if (!confirm("Report this item as stolen or lost? This will permanently close the loan, remove the item from your shelf, and suspend the borrower's account. This cannot be undone.")) return;
+          try {
+            const updated = await api.reportStolen(loan.id);
+            upsertLoan(updated);
+            broadcastStatus("STOLEN");
+            toast.info("Item reported as stolen/lost. Borrower account suspended.");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Failed");
+          }
+        }}
       />
 
       {/* Meetup widget */}
@@ -442,11 +454,13 @@ function ActionBar({
   isBorrower,
   onUpdateStatus,
   onReview,
+  onReportStolen,
 }: {
   loan: Loan;
   isBorrower: boolean;
   onUpdateStatus: (s: LoanStatus, extra?: Record<string, unknown>) => void;
   onReview: () => void;
+  onReportStolen: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const s = loan.status;
@@ -574,14 +588,34 @@ function ActionBar({
     );
   }
 
-  if ((s === "BORROWED" || s === "OVERDUE") && !isBorrower) {
+  if ((s === "BORROWED" || s === "OVERDUE" || s === "DUE_SOON" || s === "DISPUTED") && !isBorrower) {
     return (
-      <div className="flex items-center gap-2 border-b border-border bg-teal-500/5 px-4 py-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-teal-500/5 px-4 py-3 text-xs text-muted-foreground">
         <Package className="size-4 text-teal-600" />
         Item is with the borrower. You'll be notified when it's returned.
         {s === "OVERDUE" && (
           <span className="ml-2 font-semibold text-destructive">This loan is overdue.</span>
         )}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto text-destructive hover:bg-destructive/10"
+          onClick={onReportStolen}
+        >
+          <ShieldAlert className="size-4" />
+          Report stolen/lost
+        </Button>
+      </div>
+    );
+  }
+
+  // Stolen/Lost — terminal state
+  if (s === "STOLEN") {
+    return (
+      <div className="flex items-center gap-2 border-b border-destructive/30 bg-destructive/8 px-4 py-3 text-xs text-destructive">
+        <ShieldAlert className="size-4" />
+        This item has been reported as stolen or lost. The loan is permanently
+        closed and the borrower's account has been suspended.
       </div>
     );
   }

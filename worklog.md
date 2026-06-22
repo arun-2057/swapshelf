@@ -112,3 +112,22 @@ Work Log:
 
 Stage Summary:
 - Auth now works in ALL contexts (direct browser, iframe, preview panel). Sessions are DB-backed + header-based. Locations span the globe. Seed is idempotent.
+
+---
+Task ID: scaling-improvements
+Agent: main
+Task: SQLite WAL mode + Stolen/Lost terminal state for abandoned items
+
+Work Log:
+- #1 SQLite WAL mode: added PRAGMA journal_mode=WAL to db.ts (fires at client init in dev). This allows concurrent readers to coexist with a single writer, dramatically reducing SQLITE_BUSY errors during high-volume real-time chat + transactional status changes.
+- #2 Socket.io in serverless: already correct architecture — chat service runs as a dedicated mini-service on port 3003, not as a serverless function. No change needed.
+- #3 Stolen/Lost terminal state:
+  - Schema: added STOLEN to LoanStatus + ItemStatus enums; added frozen Boolean to User + flagged Boolean to Item. db:push applied.
+  - Types: added STOLEN to LoanStatus + ItemStatus unions. Updated LoanStatusBadge (STOLEN = red bold) + ItemStatusBadge (STOLEN = red strikethrough).
+  - Created POST /api/loans/[id]/report-stolen: lender-only. Transaction: loan→STOLEN, item→STOLEN+flagged, borrower frozen=true, system message "loan:stolen_reported". Only for BORROWED/OVERDUE/DISPUTED/DUE_SOON loans.
+  - API client: added reportStolen method.
+  - UI: Added "Report stolen/lost" button (ghost, destructive) to the lender's BORROWED/OVERDUE/DISPUTED action bar. Confirmation dialog warns this is permanent. On success: loan shows terminal "Stolen/Lost" badge + "This item has been reported as stolen or lost. The loan is permanently closed and the borrower's account has been suspended." Lifecycle tracker hidden for STOLEN state.
+- Verified with Agent Browser: Alex (lender) marks Dune as handed over (BORROWED) → clicks "Report stolen/lost" → confirms → loan transitions to "Stolen/Lost" terminal state with the suspension message. Zero console errors.
+
+Stage Summary:
+- Two scaling improvements shipped: WAL mode for SQLite concurrency, and a Stolen/Lost terminal state that lets lenders permanently close abandoned-item loans, freeze ghosting borrowers, and remove items from discovery — no more waiting indefinitely for a RESOLVED status that will never come. Lint clean.

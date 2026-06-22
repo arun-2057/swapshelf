@@ -148,6 +148,13 @@ export const api = {
   // ---- Messages ----
   messages: (loanId: string) => request<Message[]>(`/api/loans/${loanId}/messages`),
 
+  // ---- Report stolen/lost ----
+  reportStolen: (id: string, notes?: string) =>
+    request<Loan>(`/api/loans/${id}/report-stolen`, {
+      method: "POST",
+      body: JSON.stringify({ notes }),
+    }),
+
   // ---- Reviews ----
   submitReview: (loanId: string, data: { rating: number; comment?: string }) =>
     request<{ revealed: boolean }>("/api/reviews", {

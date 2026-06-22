@@ -14,6 +14,7 @@ const itemStatusStyles: Record<ItemStatus, string> = {
   IN_TRANSIT: "bg-accent/15 text-accent border-accent/30",
   BORROWED: "bg-teal-500/15 text-teal-700 border-teal-500/30 dark:text-teal-300",
   RETURNED: "bg-muted text-muted-foreground border-border",
+  STOLEN: "bg-destructive/20 text-destructive border-destructive/50 line-through",
   REMOVED: "bg-muted text-muted-foreground border-border line-through",
 };
 
@@ -23,8 +24,9 @@ const loanStatusStyles: Record<LoanStatus, string> = {
   DECLINED: "bg-muted text-muted-foreground border-border",
   MEETING_SCHEDULED: "bg-accent/15 text-accent border-accent/30",
   BORROWED: "bg-teal-500/15 text-teal-700 border-teal-500/30 dark:text-teal-300",
-  OVERDUE: "bg-destructive/12 text-destructive border-destructive/30",
+  OVERDUE: "bg-destructive/15 text-destructive border-destructive/40",
   RETURNED: "bg-muted text-muted-foreground border-border",
+  STOLEN: "bg-destructive/25 text-destructive border-destructive/50 font-bold",
   CANCELLED: "bg-muted text-muted-foreground border-border",
 };
 
@@ -36,6 +38,7 @@ const loanStatusLabel: Record<LoanStatus, string> = {
   BORROWED: "Borrowed",
   OVERDUE: "Overdue",
   RETURNED: "Returned",
+  STOLEN: "Stolen/Lost",
   CANCELLED: "Cancelled",
 };
 
@@ -45,6 +48,7 @@ const itemStatusLabel: Record<ItemStatus, string> = {
   IN_TRANSIT: "In Transit",
   BORROWED: "Borrowed",
   RETURNED: "Returned",
+  STOLEN: "Stolen/Lost",
   REMOVED: "Removed",
 };
 

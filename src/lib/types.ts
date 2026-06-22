@@ -13,6 +13,7 @@ export type ItemStatus =
   | "IN_TRANSIT"
   | "BORROWED"
   | "RETURNED"
+  | "STOLEN"
   | "REMOVED";
 
 export type LoanStatus =
@@ -23,6 +24,7 @@ export type LoanStatus =
   | "BORROWED"
   | "OVERDUE"
   | "RETURNED"
+  | "STOLEN"
   | "CANCELLED";
 
 export interface User {

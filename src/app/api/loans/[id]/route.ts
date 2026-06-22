@@ -120,8 +120,13 @@ export const PATCH = withErrorHandler(
         }
         break;
       }
-      case "OVERDUE": {
-        // Just set status.
+      case "OVERDUE":
+      case "STOLEN":
+      case "DISPUTED":
+      case "RESOLVED":
+      case "DUE_SOON": {
+        // Just set status (these are driven by their dedicated endpoints
+        // but allow PATCH for manual override).
         break;
       }
       default: {
