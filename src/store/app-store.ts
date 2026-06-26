@@ -30,9 +30,10 @@ interface AppState {
   // Filters
   filters: DiscoverFilters;
 
-  // UI
-  add_item_open: boolean;
-  request_item_id: string | null;
+  // UI — centralized modal state (cleaner than scattered booleans)
+  activeModal: "NONE" | "SCANNER" | "REVIEW" | "MEETUP" | "EXTENSION";
+  modalContextId: string | null; // loan/item ID the modal acts on
+  isMobileNavOpen: boolean;
 
   // Actions
   bootstrap: () => Promise<void>;
@@ -42,6 +43,8 @@ interface AppState {
   setLocation: (lat: number, lon: number, zip?: string, neighborhood?: string) => Promise<void>;
   setView: (view: AppView) => void;
   openLoan: (loanId: string) => void;
+  setActiveModal: (modal: "NONE" | "SCANNER" | "REVIEW" | "MEETUP" | "EXTENSION", contextId?: string | null) => void;
+  setMobileNavOpen: (isOpen: boolean) => void;
   openItemRequest: (itemId: string | null) => void;
   setAddItemOpen: (open: boolean) => void;
   setFilters: (f: Partial<DiscoverFilters>) => void;
@@ -76,6 +79,11 @@ export const useApp = create<AppState>((set, get) => ({
 
   filters: defaultFilters,
 
+  // UI — centralized modal state
+  activeModal: "NONE",
+  modalContextId: null,
+  isMobileNavOpen: false,
+  // Legacy compat — maps to activeModal
   add_item_open: false,
   request_item_id: null,
 
@@ -139,6 +147,10 @@ export const useApp = create<AppState>((set, get) => ({
       loans: [],
       discoverItems: [],
       activeLoanId: null,
+      activeModal: "NONE",
+      modalContextId: null,
+      isMobileNavOpen: false,
+      add_item_open: false,
     });
   },
 
@@ -156,8 +168,20 @@ export const useApp = create<AppState>((set, get) => ({
 
   setView: (view) => set({ view }),
   openLoan: (loanId) => set({ activeLoanId: loanId, view: "loan" }),
+  setActiveModal: (modal, contextId = null) =>
+    set({
+      activeModal: modal,
+      modalContextId: contextId,
+      // Keep legacy flags in sync so existing components don't break
+      add_item_open: modal === "SCANNER",
+    }),
+  setMobileNavOpen: (isOpen) => set({ isMobileNavOpen: isOpen }),
   openItemRequest: (itemId) => set({ request_item_id: itemId }),
-  setAddItemOpen: (open) => set({ add_item_open: open }),
+  setAddItemOpen: (open) =>
+    set({
+      add_item_open: open,
+      activeModal: open ? "SCANNER" : "NONE",
+    }),
   setFilters: (f) => {
     set({ filters: { ...get().filters, ...f } });
     void get().refreshDiscover();
