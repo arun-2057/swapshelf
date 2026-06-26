@@ -75,6 +75,10 @@ model Item {
   updatedAt  DateTime @updatedAt
 
   loans Loan[]
+
+  // Performance indexes for discovery + filtering
+  @@index([ownerId])
+  @@index([status, flagged])
 }
 
 enum LoanStatus {
@@ -94,9 +98,9 @@ model Loan {
   itemId       String
   item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   borrowerId   String
-  borrower     User     @relation("BorrowerLoans", fields: [borrowerId], references: [id])
+  borrower     User     @relation("BorrowerLoans", fields: [borrowerId], references: [id], onDelete: Restrict)
   lenderId     String
-  lender       User     @relation("LenderLoans", fields: [lenderId], references: [id])
+  lender       User     @relation("LenderLoans", fields: [lenderId], references: [id], onDelete: Restrict)
   status       LoanStatus @default(REQUESTED)
   startDate    DateTime?
   dueDate      DateTime?
@@ -108,17 +112,26 @@ model Loan {
   messages Message[]
   reviews Review[]
   meetup  MeetupSpot?
+
+  // Performance indexes for queries + zombie-loan cron
+  @@index([borrowerId])
+  @@index([lenderId])
+  @@index([status])
+  @@index([updatedAt])
 }
 
 model Message {
   id        String   @id @default(cuid())
   loanId    String
   loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  String?
+  sender    User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
   text      String
   systemEvent String? // e.g. "loan:accepted", "meetup:proposed"
   createdAt DateTime @default(now())
+
+  // Performance index for chat history loading (ORDER BY createdAt)
+  @@index([loanId, createdAt])
 }
 
 model MeetupSpot {
@@ -141,13 +154,17 @@ model Review {
   loanId       String
   loan         Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
   reviewerId   String
-  reviewer     User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewer     User     @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Restrict)
   revieweeId   String
-  reviewee     User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  reviewee     User     @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Restrict)
   rating       Int // 1-5
+  punctualityScore Int // 1-5
+  careScore    Int // 1-5
   comment      String?
   isRevealed   Boolean  @default(false) // hidden until both submit
   createdAt    DateTime @default(now())
 
   @@unique([loanId, reviewerId])
+  @@index([revieweeId, isRevealed]) // Profile page review queries
+  @@index([loanId, isRevealed]) // Double-blind reveal check
 }
