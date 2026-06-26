@@ -40,6 +40,7 @@ export interface User {
   zipCode?: string | null;
   neighborhood?: string | null;
   swapScore: number;
+  frozen?: boolean;
   createdAt: string;
 }
 

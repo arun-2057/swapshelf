@@ -36,11 +36,18 @@ export const GET = withErrorHandler(async (req: Request) => {
   if (availability === "available") {
     where.status = { in: ["AVAILABLE"] };
   } else {
-    // "all" — include everything except REMOVED
+    // "all" — include everything except REMOVED and STOLEN
     where.status = {
       in: ["AVAILABLE", "REQUESTED", "IN_TRANSIT", "BORROWED", "RETURNED"],
     };
   }
+
+  // Always exclude STOLEN items and flagged items from discovery —
+  // they're under dispute or permanently removed from circulation.
+  where.AND = [
+    ...(where.AND || []),
+    { flagged: false },
+  ] as typeof where.AND;
 
   if (type && type !== "ALL") {
     where.type = type;

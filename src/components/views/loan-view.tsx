@@ -285,7 +285,7 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border p-3">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to messages">
           <ArrowLeft className="size-5" />
         </Button>
         {loan.item && (
@@ -844,6 +844,7 @@ function ChatComposer({ onSend, disabled }: { onSend: (text: string) => void; di
           size="icon"
           onClick={submit}
           disabled={disabled || !text.trim()}
+          aria-label="Send message"
           className="bg-accent text-accent-foreground hover:bg-accent/90"
         >
           <Send className="size-4" />

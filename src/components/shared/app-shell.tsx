@@ -167,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Mobile menu */}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation menu">
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
@@ -190,7 +190,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               size="icon"
               className="relative"
               onClick={() => handleNav("loan")}
-              aria-label="Notifications"
+              aria-label={`Notifications${incomingRequests > 0 ? `, ${incomingRequests} new` : ""}`}
             >
               <Bell className="size-5" />
               {incomingRequests > 0 && (
@@ -207,6 +207,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Button>
             <button
               onClick={() => handleNav("profile")}
+              aria-label={`View profile: ${user?.name || "Account"}`}
               className="ml-1 rounded-full ring-offset-background transition hover:ring-2 hover:ring-primary/40"
             >
               <UserAvatar name={user?.name || "?"} avatarUrl={user?.avatarUrl} size="sm" />
@@ -214,7 +215,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1">
+        {/* Skip-to-content link for keyboard / screen reader users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg"
+        >
+          Skip to content
+        </a>
+
+        <main id="main-content" className="flex-1">
           <AnimatePresence mode="wait">
             <motion.div
               key={view + (useApp.getState().activeLoanId ?? "")}

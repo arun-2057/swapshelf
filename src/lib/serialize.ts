@@ -20,6 +20,7 @@ export interface SelfUser extends PublicUser {
   longitude: number;
   zipCode?: string | null;
   sessionToken?: string | null;
+  frozen?: boolean;
 }
 
 /**
@@ -61,6 +62,7 @@ export function stripSelfUser(u: User | null | undefined): SelfUser | null {
     longitude: u.longitude,
     zipCode: u.zipCode,
     sessionToken: u.sessionToken,
+    frozen: u.frozen,
   };
 }
 
@@ -93,6 +95,15 @@ export function withErrorHandler<T extends unknown[]>(
       const message = err instanceof Error ? err.message : String(err);
       if (message === "UNAUTHORIZED") {
         return Response.json({ error: "Please sign in" }, { status: 401 });
+      }
+      if (message === "ACCOUNT_FROZEN") {
+        return Response.json(
+          {
+            error:
+              "Your account has been suspended due to a reported issue. Please contact support.",
+          },
+          { status: 403 }
+        );
       }
       console.error("[api] unhandled error:", err);
       return Response.json(

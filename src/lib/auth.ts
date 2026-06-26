@@ -2,13 +2,14 @@ import { db } from "@/lib/db";
 import { cookies, headers } from "next/headers";
 import { randomUUID } from "crypto";
 
-// DB-backed sessions with header-based auth.
+// DB-backed sessions with hybrid auth.
 //
 // The token is stored on the User row (sessionToken, unique-indexed).
-// The client sends it as an `x-session-token` header on every request,
-// which works in ALL contexts — including cross-origin iframes like the
-// preview panel, where sameSite cookies are silently dropped by browsers.
-// We also set a cookie as a fallback for same-origin direct access.
+// The client sends it as an `Authorization: Bearer` header on every
+// request, which works in ALL contexts — including cross-origin iframes
+// like the preview panel, where sameSite cookies are silently dropped.
+// We also accept `x-session-token` (legacy) and a cookie (same-origin
+// fallback) for maximum compatibility.
 
 const SESSION_COOKIE = "swapshelf_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -47,13 +48,36 @@ export async function createSession(userId: string): Promise<string> {
   return token;
 }
 
-export async function destroySession(): Promise<void> {
-  // Try to clear the token from the DB via header or cookie
+/**
+ * Resolve the session token from any supported transport vector:
+ *   1. Authorization: Bearer <token>  (standard, works in iframes)
+ *   2. x-session-token header         (legacy compat)
+ *   3. swapshelf_session cookie        (same-origin fallback)
+ */
+export async function resolveSessionToken(): Promise<string | null> {
   const h = await headers();
-  const headerToken = h.get("x-session-token");
+
+  // 1) Authorization: Bearer <token>
+  const authHeader = h.get("authorization");
+  if (authHeader && /^bearer\s+/i.test(authHeader)) {
+    const t = authHeader.replace(/^bearer\s+/i, "").trim();
+    if (t) return t;
+  }
+
+  // 2) x-session-token header
+  const xToken = h.get("x-session-token");
+  if (xToken) return xToken;
+
+  // 3) Cookie fallback
   const store = await cookies();
   const cookieToken = store.get(SESSION_COOKIE)?.value;
-  const token = headerToken || cookieToken;
+  if (cookieToken) return cookieToken;
+
+  return null;
+}
+
+export async function destroySession(): Promise<void> {
+  const token = await resolveSessionToken();
   if (token) {
     await db.user
       .updateMany({
@@ -62,37 +86,29 @@ export async function destroySession(): Promise<void> {
       })
       .catch(() => undefined);
   }
+  const store = await cookies();
   store.delete(SESSION_COOKIE);
 }
 
 export async function getCurrentUser() {
-  // 1) Header-based auth — works in cross-origin iframes / preview panels
-  const h = await headers();
-  const headerToken = h.get("x-session-token");
-  if (headerToken) {
-    const user = await db.user.findUnique({
-      where: { sessionToken: headerToken },
-    });
-    if (user) return user;
-  }
-
-  // 2) Cookie fallback — works for same-origin direct browser access
-  const store = await cookies();
-  const cookieToken = store.get(SESSION_COOKIE)?.value;
-  if (cookieToken) {
-    const user = await db.user.findUnique({
-      where: { sessionToken: cookieToken },
-    });
-    if (user) return user;
-  }
-
-  return null;
+  const token = await resolveSessionToken();
+  if (!token) return null;
+  const user = await db.user.findUnique({
+    where: { sessionToken: token },
+  });
+  return user;
 }
 
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("UNAUTHORIZED");
+  }
+  // Frozen accounts (e.g. stolen-item borrowers) can't take actions.
+  // They CAN still log in and view their dashboard (so they see why
+  // they're suspended), but all mutation endpoints are blocked.
+  if (user.frozen) {
+    throw new Error("ACCOUNT_FROZEN");
   }
   return user;
 }
