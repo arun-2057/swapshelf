@@ -265,3 +265,20 @@ Work Log:
 
 Stage Summary:
 - Connection status banner implemented with Framer Motion height transition. Three states (reconnecting/offline/back online) with appropriate colors, icons, and copy. Pushes content down naturally. Lint clean.
+
+---
+Task ID: network-drop-test
+Agent: main
+Task: Full network-drop test — dispute resolution while offline + reconnect reconciliation
+
+Work Log:
+- Set up test scenario: Created a BORROWED loan (Dune, Diego borrows from Admin), had Diego mark it RETURNED, then Admin filed a DISPUTE via verify-return (condition DAMAGED, issues: Cover torn + Pages water damaged).
+- Step 1 (Online resolve): Admin resolved the first dispute with "Close without penalty" while chat service was up. Toast "Dispute resolved." appeared. 2 notifications created in DB (one for borrower, one for lender). Zero errors.
+- Step 2 (Simulate offline): Killed chat service (port 3003). "Reconnecting… Your messages are being queued." banner appeared (amber, spinning Loader2 icon). Zero errors.
+- Step 3 (Resolve while offline): Created a second dispute, then Admin resolved it with "Award to lender" while chat service was DOWN. The API route handler wrote directly to the DB (doesn't need the socket). Toast "Dispute resolved." appeared. 2 new notifications created in DB. Zero errors.
+- Step 4 (Reconnect): Restarted chat service. Fresh page load → socket connected immediately → no banner (connected state). 3 unread notifications visible via GET /api/notifications. Loan list shows system messages from the dispute resolution ("Admin action: Dispute resolved in favor of the lender" and "Admin action: Dispute closed without penalty"). Zero errors.
+
+Key architectural insight: The API route handlers work independently of the socket — they write to the DB directly. The socket is only for real-time push notifications to the other party. So resolving a dispute while offline works perfectly — the DB write succeeds, the notification is persisted, and when the counterparty reconnects, they'll see the notification. The Persistent Outbox handles chat messages (which need the socket for POST-then-emit), but API mutations work regardless of socket state.
+
+Stage Summary:
+- Full network-drop test passed. Dispute resolution works while offline (DB writes succeed). Notifications persist and are visible on reconnect. The "Reconnecting…" banner provides clear UX feedback. Lint clean.
