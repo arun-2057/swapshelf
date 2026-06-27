@@ -169,3 +169,25 @@ Work Log:
 
 Stage Summary:
 - Cherry-picked the three real improvements (indexes, onDelete: Restrict, composite index for chat history) without the unnecessary enum→String refactor. The app keeps its Prisma enum type safety (which is identical to what String+Zod would provide on SQLite) and gains significant query performance from the indexes. Lint clean.
+
+---
+Task ID: concurrency-wrapper + post-then-emit
+Agent: main
+Task: Lock in withTransaction wrapper + POST-then-emit chat pipeline
+
+Work Log:
+- withTransaction wrapper: already implemented in src/lib/db.ts from a previous round. Uses exact 50ms→100ms→200ms exponential backoff, catches P2024 + P2034 Prisma errors, 3 retries. Also has WAL + busy_timeout + foreign_keys pragmas. No changes needed — verified it's correct.
+- POST-then-emit pipeline: found that use-chat.ts had reverted to a version that emitted directly without persisting (socket-only, no DB write). Rewrote with the full resilient pattern:
+  1. Optimistic append with temp ID
+  2. POST to /api/loans/[id]/messages (persists to DB)
+  3. Replace temp ID with canonical DB record
+  4. Emit canonical record (with DB id) over socket
+  5. On failure, remove optimistic row + return false
+- Added POST handler to /api/loans/[id]/messages route (was GET-only). Auth + party check + text validation + DB persist. Returns canonical message with DB-assigned id.
+- Added api.sendMessage() to the API client.
+- Updated chat mini-service send-message handler to accept the canonical payload (with DB id + createdAt) instead of generating its own. Socket.io is now strictly a relay — the DB is the single source of truth.
+- Also added reconnect refetch (fills gaps after network drops), id-based dedup on all incoming messages, and createdAt-sorted merge.
+- Verified with Agent Browser: sent "Testing the POST-then-emit pipeline!" → POST /api/loans/.../messages 200 in dev log → message appears in chat → reloaded page → message survived (loaded from DB). Zero console errors.
+
+Stage Summary:
+- Both core systems locked in: withTransaction (exponential backoff for SQLITE_BUSY) and POST-then-emit (DB ledger + socket relay). Messages persist to the DB before being broadcast, survive reloads, and deduplicate by DB-assigned id. Lint clean.

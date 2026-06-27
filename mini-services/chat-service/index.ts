@@ -134,26 +134,40 @@ io.on('connection', (socket) => {
     console.log(`[chat] leave-loan room=${room} socket=${socket.id}`)
   })
 
-  // Send a user chat message to a loan room
-  socket.on('send-message', (payload: { loanId: string; userId: string; name: string; text: string }) => {
-    const { loanId, userId, name, text } = payload || {}
-    if (!loanId || !userId || !name) return
+  // Relay a user chat message to a loan room.
+  //
+  // The message is ALREADY persisted to the DB by the Next.js API
+  // (POST /api/loans/[id]/messages) BEFORE this event is emitted, so
+  // the payload carries the canonical DB-assigned id and createdAt.
+  // Socket.io is strictly a real-time event pipeline here — the DB is
+  // the single source of truth. We keep a best-effort in-memory cache
+  // only so freshly-joining sockets get recent context fast.
+  socket.on('send-message', (payload: {
+    id: string
+    loanId: string
+    senderId: string
+    senderName: string
+    text: string
+    createdAt: string
+  }) => {
+    const { id, loanId, senderId, senderName, text, createdAt } = payload || {}
+    if (!id || !loanId || !senderId || !senderName) return
     const trimmed = (text || '').toString().trim()
-    if (!trimmed) return // validate non-empty text
+    if (!trimmed) return
 
     const msg: ChatMessage = {
-      id: genId(),
+      id,
       loanId,
-      senderId: userId,
-      senderName: name,
+      senderId,
+      senderName,
       text: trimmed,
-      createdAt: nowIso(),
+      createdAt: createdAt || nowIso(),
       type: 'user'
     }
     pushHistory(loanId, msg)
     io.to(roomFor(loanId)).emit('message', msg)
 
-    console.log(`[chat] send-message room=${roomFor(loanId)} from=${name}(${userId}) len=${trimmed.length}`)
+    console.log(`[chat] send-message room=${roomFor(loanId)} from=${senderName}(${senderId}) len=${trimmed.length}`)
   })
 
   // Loan status change broadcast
