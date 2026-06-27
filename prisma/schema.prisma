@@ -34,6 +34,7 @@ model User {
   messages    Message[]
   reviewsGiven Review[]  @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
+  notifications Notification[]
 }
 
 enum ItemType {
@@ -223,4 +224,19 @@ model ReturnVerification {
   status            VerificationStatus
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // LOAN_REQUEST, REQUEST_ACCEPTED, REQUEST_DECLINED, RETURN_DUE, RETURN_VERIFIED, DISPUTE_FILED, DISPUTE_RESOLVED, REVIEW_REVEALED, EXTENSION_REQUESTED, EXTENSION_APPROVED, MEETUP_PROPOSED, ITEM_STOLEN
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  loanId    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
 }

@@ -189,6 +189,26 @@ export const api = {
   // ---- Seed ----
   seed: () => request<{ ok: boolean }>("/api/seed", { method: "POST" }),
 
+  // ---- Notifications ----
+  notifications: () =>
+    request<{
+      notifications: Array<{
+        id: string;
+        type: string;
+        title: string;
+        message: string;
+        read: boolean;
+        loanId: string | null;
+        createdAt: string;
+      }>;
+      unreadCount: number;
+    }>("/api/notifications"),
+  markNotificationsRead: (id?: string) =>
+    request<{ success: boolean }>("/api/notifications", {
+      method: "PATCH",
+      body: JSON.stringify(id ? { id } : {}),
+    }),
+
   // ---- Admin / Moderation ----
   adminDisputes: () =>
     request<{

@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { SwapScoreRing } from "@/components/shared/swap-score";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
+import { NotificationListener } from "@/components/shared/notification-listener";
 import {
   LayoutDashboard,
   Compass,
@@ -162,6 +163,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Global notification listener (socket-based real-time toasts) */}
+      <NotificationListener />
+
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-border bg-sidebar lg:block">
         {SidebarContent}

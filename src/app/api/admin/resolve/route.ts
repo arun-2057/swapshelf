@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { withErrorHandler } from "@/lib/serialize";
 import { computeGamifiedSwapScore } from "@/lib/swap-score";
+import { sendNotification } from "@/lib/notifications";
 
 // POST /api/admin/resolve
 // Body: { loanId, action: "AWARD_LENDER" | "CLOSE_WITHOUT_PENALTY" | "BAN_USER" }
@@ -55,6 +56,9 @@ export const POST = withErrorHandler(async (req: Request) => {
           systemEvent: "moderation:ban_user",
         },
       });
+      // Notify both parties
+      await sendNotification(tx, loan.borrowerId, "DISPUTE_RESOLVED", "Account suspended", `Your account has been suspended due to the dispute regarding "${loan.item.title}".`, loanId);
+      await sendNotification(tx, loan.lenderId, "DISPUTE_RESOLVED", "Dispute resolved", `The dispute regarding "${loan.item.title}" has been resolved. The borrower's account has been suspended.`, loanId);
     } else {
       // AWARD_LENDER or CLOSE_WITHOUT_PENALTY — both resolve the loan
       await tx.loan.update({
@@ -67,7 +71,6 @@ export const POST = withErrorHandler(async (req: Request) => {
       });
 
       if (action === "AWARD_LENDER") {
-        // Dock the borrower's SwapScore (recompute with the dispute counting against them)
         await computeGamifiedSwapScore(loan.borrowerId, tx);
         await tx.message.create({
           data: {
@@ -77,6 +80,8 @@ export const POST = withErrorHandler(async (req: Request) => {
             systemEvent: "moderation:award_lender",
           },
         });
+        await sendNotification(tx, loan.borrowerId, "DISPUTE_RESOLVED", "Dispute resolved", `The dispute regarding "${loan.item.title}" was resolved in favor of the lender. Your SwapScore has been adjusted.`, loanId);
+        await sendNotification(tx, loan.lenderId, "DISPUTE_RESOLVED", "Dispute resolved", `The dispute regarding "${loan.item.title}" was resolved in your favor. The item is back on your shelf.`, loanId);
       } else {
         await tx.message.create({
           data: {
@@ -86,6 +91,8 @@ export const POST = withErrorHandler(async (req: Request) => {
             systemEvent: "moderation:close_no_penalty",
           },
         });
+        await sendNotification(tx, loan.borrowerId, "DISPUTE_RESOLVED", "Dispute closed", `The dispute regarding "${loan.item.title}" has been closed without penalty.`, loanId);
+        await sendNotification(tx, loan.lenderId, "DISPUTE_RESOLVED", "Dispute closed", `The dispute regarding "${loan.item.title}" has been closed without penalty. The item is back on your shelf.`, loanId);
       }
     }
 

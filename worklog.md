@@ -228,3 +228,22 @@ Work Log:
 
 Stage Summary:
 - Full moderation dashboard with role-based access (USER/MODERATOR/ADMIN), dispute queue with evidence photos, and atomic escalation actions (award/close/ban) all running inside db.$transaction. Lint clean.
+
+---
+Task ID: notification-system
+Agent: main
+Task: Unified notification system — persistent DB + real-time socket broadcast + global listener
+
+Work Log:
+- Schema: added Notification model (id, userId, type, title, message, read, loanId, createdAt) with @@index([userId, read]) + @@index([createdAt]). db:push applied.
+- Created src/lib/notifications.ts: sendNotification(tx, userId, type, title, message, loanId?) — persists to DB inside the provided transaction (accepts either db or tx client). Returns serialized payload. Designed to run inside transactions so notifications commit atomically with the triggering state change.
+- Chat service: added user-notification event handler (broadcasts to per-user room `user:<userId>`) + join-user event (client joins their personal notification room on connect). Per-user rooms ensure only the target user receives the notification.
+- API routes: GET /api/notifications (list user's notifications, unread first, 50 max, includes unreadCount) + PATCH /api/notifications (mark specific or all as read).
+- API client: added notifications() + markNotificationsRead(id?).
+- Integrated sendNotification into POST /api/admin/resolve: each action (AWARD_LENDER, CLOSE_WITHOUT_PENALTY, BAN_USER) now creates notifications for BOTH borrower and lender inside the same transaction. Each gets a tailored message (e.g., "resolved in your favor" vs "resolved in favor of the lender").
+- Created NotificationListener component: connects to socket, joins user room, listens for 'notification' events. On receipt: shows a Sonner toast with type-appropriate icon (MessageSquare for loan events, Shield for disputes, AlertTriangle for overdue, CheckCircle for others) and variant (error/warning/success). Also triggers a notifications API refetch to update the badge.
+- Wired NotificationListener into AppShell (mounted once for all authenticated routes).
+- Verified: Admin resolves dispute with "Close without penalty" → toast "Dispute resolved." → GET /api/notifications returns 1 unread (DISPUTE_RESOLVED: "Dispute closed"). Zero console errors.
+
+Stage Summary:
+- Full notification pipeline: DB persistence (atomic with triggering event) → socket broadcast to per-user room → client-side toast + badge refetch. Integrated into the moderation resolve flow with tailored messages for both parties. Lint clean.

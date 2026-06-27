@@ -206,6 +206,37 @@ io.on('connection', (socket) => {
     console.log(`[chat] meetup-update room=${room} name=${name || ''} by=${by || ''}`)
   })
 
+  // User notification broadcast — sends to a per-user room so only the
+  // target user receives it. The client joins room `user:<userId>` on
+  // connect. Used by the notification orchestrator for real-time toasts.
+  socket.on('user-notification', (payload: {
+    userId: string
+    notification: {
+      id: string
+      type: string
+      title: string
+      message: string
+      loanId: string | null
+      createdAt: string
+    }
+  }) => {
+    const { userId, notification } = payload || {}
+    if (!userId || !notification) return
+
+    const userRoom = `user:${userId}`
+    io.to(userRoom).emit('notification', notification)
+
+    console.log(`[chat] user-notification room=${userRoom} type=${notification.type}`)
+  })
+
+  // Join a user's personal notification room
+  socket.on('join-user', (payload: { userId: string }) => {
+    const { userId } = payload || {}
+    if (!userId) return
+    void socket.join(`user:${userId}`)
+    console.log(`[chat] join-user user:${userId} socket=${socket.id}`)
+  })
+
   socket.on('disconnect', () => {
     // Rooms auto-clean; do nothing destructive. Just log.
     const loans = socketLoans.get(socket.id)
