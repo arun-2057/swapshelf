@@ -112,6 +112,8 @@ model Loan {
   messages Message[]
   reviews Review[]
   meetup  MeetupSpot?
+  extensions ExtensionRequest[]
+  returnVerification ReturnVerification?
 
   // Performance indexes for queries + zombie-loan cron
   @@index([borrowerId])
@@ -167,4 +169,51 @@ model Review {
   @@unique([loanId, reviewerId])
   @@index([revieweeId, isRevealed]) // Profile page review queries
   @@index([loanId, isRevealed]) // Double-blind reveal check
+}
+
+enum ExtensionStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  COUNTERED
+}
+
+model ExtensionRequest {
+  id              String   @id @default(cuid())
+  loanId          String
+  loan            Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  requestedDays   Int
+  proposedDueDate DateTime
+  status          ExtensionStatus @default(PENDING)
+  createdById     String
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([loanId])
+}
+
+enum ConditionRating {
+  EXCELLENT
+  GOOD
+  DAMAGED
+}
+
+enum VerificationStatus {
+  PASSED
+  DISPUTED
+}
+
+model ReturnVerification {
+  id                String   @id @default(cuid())
+  loanId            String   @unique
+  loan              Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  verifiedById      String
+  conditionRating   ConditionRating
+  missingComponents String   // JSON-encoded checklist
+  notes             String?
+  evidenceImageUrl  String?  // Photo evidence for disputes (data URL or CDN URL)
+  status            VerificationStatus
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

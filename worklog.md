@@ -191,3 +191,18 @@ Work Log:
 
 Stage Summary:
 - Both core systems locked in: withTransaction (exponential backoff for SQLITE_BUSY) and POST-then-emit (DB ledger + socket relay). Messages persist to the DB before being broadcast, survive reloads, and deduplicate by DB-assigned id. Lint clean.
+
+---
+Task ID: infrastructure-improvements
+Agent: main
+Task: Persistent Outbox + Dispute Evidence Photo + Image Optimization
+
+Work Log:
+- #1 Persistent Outbox Pattern: Updated use-chat.ts with localStorage-backed outbox. When sendMessage fails (network error), the message is queued to localStorage (swapshelf_outbox key) instead of being dropped. The message stays visible with pending=true. On socket reconnect, flushOutbox() retries the POST for each queued message, swaps the temp ID for the canonical DB ID, and broadcasts. On app boot, pending outbox entries for the current loan are restored to the UI. This prevents "disappearing message" frustration when users lose signal.
+- #2 Dispute Evidence Photo: Added evidenceImageUrl String? to ReturnVerification model. Updated POST /api/loans/[id]/verify-return to accept evidenceImageUrl in the request body. When a dispute is filed, the system message includes "Photo evidence attached" if a photo was provided. Supports data URLs (sandbox) and CDN URLs (production). The API client's verifyReturn method now accepts evidenceImageUrl.
+- #3 Image Optimization: Switched ItemCover from raw <img> to next/image with: fill layout, responsive sizes attribute, automatic AVIF/WebP format negotiation, gradient spine as LQIP background (prevents CLS — the gradient renders instantly while the image loads on top), unoptimized=true for data URLs (evidence photos), graceful error handling (hides image, gradient shows through). Configured next.config.ts with images.remotePatterns for all HTTPS/HTTP hosts + formats: ["image/avif", "image/webp"].
+- Also recreated missing files lost during schema resets: src/lib/swap-score.ts (3-factor formula), POST /api/loans/[id]/verify-return route (with evidenceImageUrl support), ExtensionRequest + ReturnVerification models in schema.
+- Verified: lint clean (0 errors, 0 warnings), landing page loads with zero console errors, next/image serving with gradient LQIP backdrop.
+
+Stage Summary:
+- Three infrastructure improvements shipped: persistent outbox (offline message survival), dispute evidence photos (data URL upload), and progressive image optimization (next/image with LQIP + AVIF/WebP). Lint clean.

@@ -1,11 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { BookOpen, Dices } from "lucide-react";
 import type { ItemType } from "@/lib/types";
 
 // Deterministic warm gradient based on title — gives every item a
-// unique "spine" even when no cover image exists.
+// unique "spine" even when no cover image exists. Also serves as the
+// LQIP (Low-Quality Image Placeholder) background while next/image
+// loads the high-res cover, preventing CLS.
 const palettes: { from: string; to: string; ink: string }[] = [
   { from: "#2d4a3e", to: "#4a6b5a", ink: "#f5e6c8" },
   { from: "#7a4a2d", to: "#a0683f", ink: "#f5e6c8" },
@@ -38,36 +41,50 @@ export function ItemCover({
 }) {
   const palette = palettes[hashString(title || "") % palettes.length];
 
+  // Gradient spine style — used as the container background so it
+  // shows instantly (LQIP) while the image loads on top.
+  const gradientStyle = {
+    background: `linear-gradient(150deg, ${palette.from}, ${palette.to})`,
+    color: palette.ink,
+  };
+
   if (imageUrl) {
+    // Determine if this is a data URL (evidence photo) or external URL.
+    // next/image handles both, but data URLs need unoptimized=true.
+    const isDataUrl = imageUrl.startsWith("data:");
+
     return (
       <div
         className={cn(
-          "relative overflow-hidden rounded-lg bg-muted",
+          "relative overflow-hidden rounded-lg",
           className
         )}
+        style={gradientStyle}
       >
-        <img
+        <Image
           src={imageUrl}
           alt={title}
-          className="h-full w-full object-cover"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 200px"
+          className="object-cover"
+          unoptimized={isDataUrl}
           onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
+            // Hide the image on error — the gradient spine shows through
+            (e.currentTarget as HTMLImageElement).style.opacity = "0";
           }}
         />
       </div>
     );
   }
 
+  // No cover image — render the gradient spine with title text
   return (
     <div
       className={cn(
         "relative flex flex-col justify-between overflow-hidden rounded-lg p-3 shadow-inner",
         className
       )}
-      style={{
-        background: `linear-gradient(150deg, ${palette.from}, ${palette.to})`,
-        color: palette.ink,
-      }}
+      style={gradientStyle}
     >
       {/* spine */}
       <div className="absolute left-0 top-0 h-full w-1.5 bg-black/20" />

@@ -153,6 +153,22 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
+  // ---- Return verification ----
+  verifyReturn: (
+    id: string,
+    data: {
+      conditionRating: "EXCELLENT" | "GOOD" | "DAMAGED";
+      missingComponents: string[];
+      notes?: string;
+      evidenceImageUrl?: string;
+      status: "PASSED" | "DISPUTED";
+    }
+  ) =>
+    request<Loan>(`/api/loans/${id}/verify-return`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // ---- Report stolen/lost ----
   reportStolen: (id: string, notes?: string) =>
     request<Loan>(`/api/loans/${id}/report-stolen`, {

@@ -13,6 +13,7 @@ export interface ChatMessage {
   createdAt: string;
   type: "user" | "system";
   systemEvent?: string;
+  pending?: boolean; // true while in the outbox (not yet persisted)
 }
 
 interface UseChatOptions {
@@ -21,19 +22,60 @@ interface UseChatOptions {
   userName: string | null;
 }
 
+// ---- Persistent Outbox (localStorage) ----
+// When a message fails to send (network error), it's queued here.
+// On reconnect or app boot, the queue is flushed. This prevents the
+// "disappearing message" frustration when a user loses signal.
+const OUTBOX_KEY = "swapshelf_outbox";
+
+interface OutboxEntry {
+  loanId: string;
+  userId: string;
+  userName: string;
+  text: string;
+  tempId: string;
+  createdAt: string;
+}
+
+function getOutbox(): OutboxEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function setOutbox(entries: OutboxEntry[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(entries));
+  } catch {
+    /* storage full or unavailable */
+  }
+}
+
+function addToOutbox(entry: OutboxEntry) {
+  const current = getOutbox();
+  setOutbox([...current, entry]);
+}
+
+function removeFromOutbox(tempId: string) {
+  const current = getOutbox();
+  setOutbox(current.filter((e) => e.tempId !== tempId));
+}
+
 /**
- * Resilient loan-chat hook implementing the POST-then-emit pattern.
+ * Resilient loan-chat hook with Persistent Outbox.
  *
  * Architecture (DB = single source of truth, Socket.io = event pipeline):
  *   - On mount & on loan change: fetch canonical history from the DB
- *     (GET /api/loans/[id]/messages) into local state.
- *   - On send: POST the message to the DB (persist) → on success, append
- *     the canonical (DB-id'd) message locally, then emit it over the
- *     socket so the counterparty receives it in real time.
- *   - On socket `message`: append only if not already present (id-based
- *     deduplication — handles echoes of our own sends).
- *   - On socket `reconnect`: re-fetch DB history and merge by id to fill
- *     any gaps created while the connection was down.
+ *   - On send: POST to DB → replace optimistic → emit over socket
+ *   - On send FAILURE: queue to localStorage outbox (message stays
+ *     visible with a "pending" indicator). On reconnect, the outbox
+ *     is flushed automatically.
+ *   - On socket `message`: append only if not already present (dedup)
+ *   - On socket `reconnect`: refetch DB history + flush outbox
  */
 export function useChat({ loanId, userId, userName }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +84,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
   const socketRef = useRef<Socket | null>(null);
   const loadTokenRef = useRef(0);
   const mountedRef = useRef(true);
+  const flushingRef = useRef(false);
 
   // ---- DB history fetch + merge ----
   const fetchHistory = useCallback(
@@ -54,10 +97,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
           id: m.id,
           loanId: m.loanId,
           senderId: m.senderId,
-          senderName:
-            m.senderId === userId
-              ? userName || "You"
-              : "Neighbor",
+          senderName: m.senderId === userId ? userName || "You" : "Neighbor",
           text: m.text,
           createdAt: m.createdAt,
           type: m.systemEvent ? "system" : "user",
@@ -80,7 +120,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
           return merged;
         });
       } catch {
-        /* network errors are non-fatal; socket will keep trying */
+        /* non-fatal */
       } finally {
         if (mountedRef.current && token === loadTokenRef.current) {
           setLoading(false);
@@ -89,6 +129,78 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
     },
     [userId, userName]
   );
+
+  // ---- Flush the persistent outbox ----
+  const flushOutbox = useCallback(async () => {
+    if (flushingRef.current || !loanId || !userId || !userName) return;
+    flushingRef.current = true;
+    try {
+      const entries = getOutbox().filter((e) => e.loanId === loanId);
+      for (const entry of entries) {
+        try {
+          const saved = await api.sendMessage(entry.loanId, entry.text);
+          const canonical: ChatMessage = {
+            id: saved.id,
+            loanId: saved.loanId,
+            senderId: saved.senderId,
+            senderName: entry.userName,
+            text: saved.text,
+            createdAt: saved.createdAt,
+            type: "user",
+          };
+          setMessages((prev) =>
+            prev
+              .filter((m) => m.id !== entry.tempId)
+              .concat(canonical)
+              .sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() -
+                  new Date(b.createdAt).getTime()
+              )
+          );
+          removeFromOutbox(entry.tempId);
+
+          // Broadcast the flushed message
+          const socket = socketRef.current;
+          if (socket && socket.connected) {
+            socket.emit("send-message", {
+              id: saved.id,
+              loanId: saved.loanId,
+              senderId: saved.senderId,
+              senderName: entry.userName,
+              text: saved.text,
+              createdAt: saved.createdAt,
+            });
+          }
+        } catch {
+          break; // still offline — leave in outbox for next attempt
+        }
+      }
+    } finally {
+      flushingRef.current = false;
+    }
+  }, [loanId, userId, userName]);
+
+  // ---- Restore pending outbox messages for this loan on mount ----
+  useEffect(() => {
+    if (!loanId || !userId) return;
+    const pending = getOutbox().filter((e) => e.loanId === loanId);
+    if (pending.length > 0) {
+      setMessages((prev) => [
+        ...prev,
+        ...pending.map((e) => ({
+          id: e.tempId,
+          loanId: e.loanId,
+          senderId: e.userId,
+          senderName: e.userName,
+          text: e.text,
+          createdAt: e.createdAt,
+          type: "user" as const,
+          pending: true,
+        })),
+      ]);
+    }
+  }, [loanId, userId]);
 
   // ---- Load history on loan change ----
   useEffect(() => {
@@ -130,10 +242,10 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
     const onDisconnect = () => setConnected(false);
     const onConnectError = () => setConnected(false);
 
-    // Reconnect listener: after a network drop, refetch DB history to
-    // fill any gaps created while we were offline.
+    // Reconnect listener: refetch DB history + flush outbox
     const onReconnect = () => {
       void fetchHistory(loanId, { replace: false });
+      void flushOutbox();
     };
 
     socket.on("connect", onConnect);
@@ -179,34 +291,38 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
       socketRef.current = null;
       setConnected(false);
     };
-  }, [loanId, userId, userName, fetchHistory]);
+  }, [loanId, userId, userName, fetchHistory, flushOutbox]);
 
   // ---- Send: persist first, then broadcast (POST-then-emit) ----
+  // On failure: queue to localStorage outbox (message stays visible
+  // with pending=true). Flushed on reconnect.
   const sendMessage = useCallback(
     async (text: string): Promise<boolean> => {
       const socket = socketRef.current;
       if (!loanId || !userId || !userName || !text.trim()) return false;
 
       const trimmed = text.trim();
-
-      // 1. Optimistic local append with a temp ID so the UI feels instant.
       const optimisticId = `opt-${Date.now()}`;
+      const now = new Date().toISOString();
+
+      // 1. Optimistic local append (pending=true until persisted)
       const optimistic: ChatMessage = {
         id: optimisticId,
         loanId,
         senderId: userId,
         senderName: userName,
         text: trimmed,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
         type: "user",
+        pending: true,
       };
       setMessages((prev) => [...prev, optimistic]);
 
       try {
-        // 2. POST to the DB ledger — single source of truth.
+        // 2. POST to the DB ledger
         const saved = await api.sendMessage(loanId, trimmed);
 
-        // 3. Replace the optimistic row with the canonical (DB-id'd) one.
+        // 3. Replace optimistic with canonical (clear pending)
         const canonical: ChatMessage = {
           id: saved.id,
           loanId: saved.loanId,
@@ -215,6 +331,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
           text: saved.text,
           createdAt: saved.createdAt,
           type: "user",
+          pending: false,
         };
         setMessages((prev) =>
           prev
@@ -227,9 +344,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
             )
         );
 
-        // 4. Broadcast over the socket so the counterparty gets it live.
-        //    The socket server relays the canonical payload (with the
-        //    DB-assigned id) — it does NOT write to the DB.
+        // 4. Broadcast over socket
         if (socket && socket.connected) {
           socket.emit("send-message", {
             id: saved.id,
@@ -242,9 +357,19 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
         }
         return true;
       } catch {
-        // Persist failed — drop the optimistic row so we don't lie to
-        // the user. They can retry.
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        // 5. Persist failed — DON'T drop the message. Queue to the
+        //    persistent outbox so it survives navigation + app reload.
+        //    The message stays visible with pending=true (shows a
+        //    "sending..." indicator). On reconnect, flushOutbox()
+        //    will retry the POST and swap the temp ID for the real one.
+        addToOutbox({
+          loanId,
+          userId,
+          userName,
+          text: trimmed,
+          tempId: optimisticId,
+          createdAt: now,
+        });
         return false;
       }
     },
@@ -276,6 +401,7 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
     loading,
     broadcastStatus,
     broadcastMeetup,
+    flushOutbox,
     refresh: () => loanId && fetchHistory(loanId, { replace: false }),
   };
 }
