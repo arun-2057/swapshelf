@@ -50,6 +50,7 @@ interface Dispute {
   recentMessages: Array<{
     id: string;
     senderId: string;
+    senderName: string;
     text: string;
     systemEvent: string | null;
     createdAt: string;
@@ -285,7 +286,7 @@ export function AdminDashboard() {
                         ) : (
                           <>
                             <span className="font-medium text-foreground">
-                              {m.senderId === selected.borrower.id ? selected.borrower.name : selected.lender.name}:
+                              {m.senderName}:
                             </span>{" "}
                             <span className="text-muted-foreground">{m.text}</span>
                           </>

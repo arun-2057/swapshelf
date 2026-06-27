@@ -21,7 +21,13 @@ export const GET = withErrorHandler(async () => {
       borrower: { select: { id: true, name: true, email: true, swapScore: true, frozen: true, neighborhood: true } },
       lender: { select: { id: true, name: true, email: true, swapScore: true, frozen: true, neighborhood: true } },
       returnVerification: true,
-      messages: { orderBy: { createdAt: "asc" }, take: 50 },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        take: 50,
+        include: {
+          sender: { select: { id: true, name: true, avatarUrl: true } },
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -56,6 +62,7 @@ export const GET = withErrorHandler(async () => {
     recentMessages: loan.messages.map((m) => ({
       id: m.id,
       senderId: m.senderId,
+      senderName: m.sender?.name || "System",
       text: m.text,
       systemEvent: m.systemEvent,
       createdAt: m.createdAt.toISOString(),

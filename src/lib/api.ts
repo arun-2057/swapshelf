@@ -230,4 +230,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ loanId, action }),
     }),
+  adminMessages: (loanId: string) =>
+    request<Array<{
+      id: string;
+      loanId: string;
+      senderId: string;
+      senderName: string;
+      senderAvatarUrl: string | null;
+      text: string;
+      systemEvent: string | null;
+      isSystem: boolean;
+      createdAt: string;
+    }>>(`/api/admin/messages/${loanId}`),
 };
