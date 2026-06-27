@@ -247,3 +247,21 @@ Work Log:
 
 Stage Summary:
 - Full notification pipeline: DB persistence (atomic with triggering event) → socket broadcast to per-user room → client-side toast + badge refetch. Integrated into the moderation resolve flow with tailored messages for both parties. Lint clean.
+
+---
+Task ID: connection-status-banner
+Agent: main
+Task: Reconnecting/offline status banner with Framer Motion height transition
+
+Work Log:
+- Rewrote NotificationListener to track three connection states: connected, reconnecting, disconnected. Listens to socket.io's connect, reconnect_attempt, disconnect, and connect_error events.
+- Added AnimatePresence + motion.div height transition (h-0 → auto) banner that appears at the top of the main content column (above the header, pushing content down naturally — no overlay).
+- Three banner states:
+  - reconnecting: amber bg + spinning Loader2 + "Reconnecting… Your messages are being queued."
+  - disconnected: red bg + CloudOff icon + "Offline — your actions will sync when you reconnect."
+  - back online: green bg + CloudCheck icon + "Back online — all caught up!" (flashes for 2.5s then hides)
+- Moved NotificationListener from a sibling before the sidebar to inside the main content column (above the header) so the banner pushes content down, not sideways.
+- Verified: killed chat service → banner appears "Reconnecting…" (amber, spinning) → restarted service + reloaded → banner disappears (connected). Zero console errors.
+
+Stage Summary:
+- Connection status banner implemented with Framer Motion height transition. Three states (reconnecting/offline/back online) with appropriate colors, icons, and copy. Pushes content down naturally. Lint clean.

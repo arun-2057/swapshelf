@@ -1,24 +1,48 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/store/app-store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Bell, CheckCircle, AlertTriangle, MessageSquare, Shield } from "lucide-react";
+import {
+  Bell,
+  CheckCircle,
+  AlertTriangle,
+  MessageSquare,
+  Shield,
+  Loader2,
+  CloudOff,
+  CloudCheck,
+} from "lucide-react";
+
+type ConnectionState = "connected" | "reconnecting" | "disconnected";
 
 /**
- * NotificationListener — a global component that connects to the
- * Socket.io mini-service, joins the user's personal notification room,
- * and listens for incoming notifications. When one arrives:
- *   1. Shows a toast (Sonner) with an appropriate icon
- *   2. Triggers a refetch of the notification badge count
+ * NotificationListener + ConnectionStatusBanner.
+ *
+ * This component does two things:
+ *   1. Maintains a global socket connection for user notifications.
+ *   2. Exposes the connection state via a thin height-transitioning
+ *      banner at the top of the screen so users always know when
+ *      they're offline and their actions are being queued.
+ *
+ * The banner uses Framer Motion for the h-0 → h-8 height transition
+ * and shows different copy + icons based on the state:
+ *   - reconnecting: "Reconnecting… Your messages are being queued."
+ *   - disconnected: "Offline — your actions will sync when you reconnect."
+ *   - connected → back online: brief "Back online" flash, then hides.
  *
  * Mounted once in the AppShell (authenticated routes only).
  */
 export function NotificationListener() {
   const { user } = useApp();
   const socketRef = useRef<Socket | null>(null);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("connected");
+  const [showBackOnline, setShowBackOnline] = useState(false);
+  const wasConnected = useRef(true);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -34,7 +58,29 @@ export function NotificationListener() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      setConnectionState("connected");
       socket.emit("join-user", { userId: user.id });
+
+      // If we were previously disconnected, flash "Back online"
+      if (!wasConnected.current) {
+        wasConnected.current = true;
+        setShowBackOnline(true);
+        setTimeout(() => setShowBackOnline(false), 2500);
+      }
+    });
+
+    socket.io.on("reconnect_attempt", () => {
+      setConnectionState("reconnecting");
+      wasConnected.current = false;
+    });
+
+    socket.on("disconnect", () => {
+      setConnectionState("disconnected");
+      wasConnected.current = false;
+    });
+
+    socket.on("connect_error", () => {
+      setConnectionState("reconnecting");
     });
 
     socket.on("notification", (notif: {
@@ -45,7 +91,6 @@ export function NotificationListener() {
       loanId: string | null;
       createdAt: string;
     }) => {
-      // 1. Show toast with type-appropriate icon
       const icon = getIconForType(notif.type);
       const variant = notif.type.includes("BAN") || notif.type.includes("STOLEN")
         ? "error"
@@ -61,8 +106,6 @@ export function NotificationListener() {
         toast.success(notif.title, { description: notif.message, icon });
       }
 
-      // 2. Trigger a refetch of the notification badge by calling the API
-      //    (the app-shell's bell button will pick this up on next render)
       void api.notifications().catch(() => {});
     });
 
@@ -72,7 +115,63 @@ export function NotificationListener() {
     };
   }, [user?.id]);
 
-  return null;
+  // The banner shows when: reconnecting, disconnected, or briefly
+  // when coming back online.
+  const showBanner =
+    connectionState !== "connected" || showBackOnline;
+
+  const bannerConfig = {
+    reconnecting: {
+      icon: Loader2,
+      text: "Reconnecting… Your messages are being queued.",
+      bg: "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300",
+      animate: true,
+    },
+    disconnected: {
+      icon: CloudOff,
+      text: "Offline — your actions will sync when you reconnect.",
+      bg: "bg-destructive/10 border-destructive/25 text-destructive",
+      animate: false,
+    },
+    connected: {
+      // Back online flash
+      icon: CloudCheck,
+      text: "Back online — all caught up!",
+      bg: "bg-primary/10 border-primary/25 text-primary",
+      animate: false,
+    },
+  };
+
+  const config = showBackOnline
+    ? bannerConfig.connected
+    : bannerConfig[connectionState];
+  const Icon = config.icon;
+
+  return (
+    <>
+      {/* Connection status banner */}
+      <AnimatePresence>
+        {showBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div
+              className={`flex items-center justify-center gap-2 border-b px-4 py-1.5 text-xs font-medium ${config.bg}`}
+            >
+              <Icon
+                className={`size-3.5 ${config.animate ? "animate-spin" : ""}`}
+              />
+              {config.text}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
 }
 
 function getIconForType(type: string) {
