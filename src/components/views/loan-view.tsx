@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
+  ArrowDown,
   Send,
   MapPin,
   Check,
@@ -45,7 +46,7 @@ import {
 import type { Loan, LoanStatus, MeetupSpot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
-import { SAFE_MEETUP_SPOTS } from "@/lib/geo";
+import { useScrollAnchor } from "@/hooks/use-scroll-anchor";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReviewDialog } from "@/components/views/review-dialog";
@@ -197,7 +198,14 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const {
+    scrollRef,
+    bottomRef,
+    isAtBottom,
+    showNewMessage,
+    scrollToBottom,
+    resetAnchor,
+  } = useScrollAnchor<HTMLDivElement>(messages.length, loadingHistory);
 
   const isBorrower = loan.borrowerId === user?.id;
   const counterparty = isBorrower ? loan.lender : loan.borrower;
@@ -239,10 +247,10 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
   // Use live messages if they're richer, else fallback to loaded ones
   const displayMessages = liveMessages.length >= messages.length ? liveMessages : messages;
 
-  // Auto-scroll
+  // Reset scroll anchor state when switching loans
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [displayMessages.length]);
+    resetAnchor();
+  }, [loan.id, resetAnchor]);
 
   const handleSend = (text: string) => {
     // Optimistic local append
@@ -410,28 +418,48 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
       />
 
       {/* Chat area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-fancy bg-background p-4">
-        {loadingHistory ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {displayMessages.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
-                <MessagesSquare className="mx-auto mb-2 size-6 text-muted-foreground/60" />
-                <p className="text-sm text-muted-foreground">
-                  Say hello — plan your meetup or ask about the item.
-                </p>
-              </div>
-            )}
-            <AnimatePresence initial={false}>
-              {displayMessages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} mine={msg.senderId === user?.id} />
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
+      <div className="relative flex-1 overflow-hidden">
+        <div ref={scrollRef} className="h-full overflow-y-auto scroll-fancy bg-background p-4">
+          {loadingHistory ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {displayMessages.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+                  <MessagesSquare className="mx-auto mb-2 size-6 text-muted-foreground/60" />
+                  <p className="text-sm text-muted-foreground">
+                    Say hello — plan your meetup or ask about the item.
+                  </p>
+                </div>
+              )}
+              <AnimatePresence initial={false}>
+                {displayMessages.map((msg) => (
+                  <MessageBubble key={msg.id} msg={msg} mine={msg.senderId === user?.id} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+          {/* Invisible bottom sentinel for IntersectionObserver */}
+          <div ref={bottomRef} className="h-1 w-full" />
+        </div>
+
+        {/* "New messages" pill — shown when reading history and new msgs arrive */}
+        <AnimatePresence>
+          {showNewMessage && !isAtBottom && (
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              onClick={scrollToBottom}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground shadow-lift transition hover:bg-accent/90"
+            >
+              New messages
+              <ArrowDown className="size-3" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Composer */}
