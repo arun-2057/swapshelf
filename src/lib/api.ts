@@ -188,4 +188,46 @@ export const api = {
 
   // ---- Seed ----
   seed: () => request<{ ok: boolean }>("/api/seed", { method: "POST" }),
+
+  // ---- Admin / Moderation ----
+  adminDisputes: () =>
+    request<{
+      disputes: Array<{
+        id: string;
+        status: string;
+        title: string;
+        type: string;
+        imageUrl: string | null;
+        flagged: boolean;
+        borrower: { id: string; name: string; email: string; swapScore: number; frozen: boolean; neighborhood: string | null };
+        lender: { id: string; name: string; email: string; swapScore: number; frozen: boolean; neighborhood: string | null };
+        dueDate: string | null;
+        resolvedAt: string | null;
+        moderatorId: string | null;
+        createdAt: string;
+        updatedAt: string;
+        returnVerification: {
+          id: string;
+          conditionRating: string;
+          missingComponents: string[];
+          notes: string | null;
+          evidenceImageUrl: string | null;
+          status: string;
+          createdAt: string;
+        } | null;
+        recentMessages: Array<{
+          id: string;
+          senderId: string;
+          text: string;
+          systemEvent: string | null;
+          createdAt: string;
+        }>;
+      }>;
+      moderator: { id: string; name: string; role: string };
+    }>("/api/admin/disputes"),
+  adminResolve: (loanId: string, action: "AWARD_LENDER" | "CLOSE_WITHOUT_PENALTY" | "BAN_USER") =>
+    request<{ success: boolean; loan: { id: string; status: string } }>("/api/admin/resolve", {
+      method: "POST",
+      body: JSON.stringify({ loanId, action }),
+    }),
 };

@@ -206,3 +206,25 @@ Work Log:
 
 Stage Summary:
 - Three infrastructure improvements shipped: persistent outbox (offline message survival), dispute evidence photos (data URL upload), and progressive image optimization (next/image with LQIP + AVIF/WebP). Lint clean.
+
+---
+Task ID: moderation-dashboard
+Agent: main
+Task: Admin Moderation Dashboard with dispute queue, evidence viewer, and atomic escalation
+
+Work Log:
+- Schema: added role String @default("USER") to User (USER|MODERATOR|ADMIN), resolvedAt DateTime? + moderatorId String? to Loan. Restored DISPUTED to both LoanStatus and ItemStatus enums (lost during earlier schema resets). db:push applied.
+- Auth: added requireModerator() (checks role === MODERATOR || ADMIN) and requireAdmin() (checks role === ADMIN only). Both inherit requireUser() so frozen mods are blocked. Added FORBIDDEN → 403 to withErrorHandler. Added role to SelfUser type + serializer.
+- API routes:
+  - GET /api/admin/disputes: mod/admin only. Queries loans with status DISPUTED or STOLEN, includes item + borrower + lender + returnVerification (with evidenceImageUrl) + recent 50 messages. Returns serialized dispute list.
+  - POST /api/admin/resolve: admin only. Body: { loanId, action: "AWARD_LENDER" | "CLOSE_WITHOUT_PENALTY" | "BAN_USER" }. Single $transaction: AWARD_LENDER → loan RESOLVED + item AVAILABLE + borrower SwapScore recomputed. CLOSE_WITHOUT_PENALTY → loan RESOLVED + item AVAILABLE + no SwapScore change. BAN_USER → loan STOLEN + item STOLEN + borrower frozen. Each posts a system message to the chat timeline.
+- AdminDashboard component: bento-grid layout with three panels:
+  - Left: Dispute Queue (scrollable list of disputed/stolen loans with status badge + condition)
+  - Center: Context panel (borrower/lender cards with SwapScore + frozen status, Return Verification with condition/missing components/notes/evidence photo, recent chat messages)
+  - Right: Resolution toolbar (sticky, three action buttons with confirmation dialogs)
+- Wired into page.tsx (view="admin" → AdminDashboard) + app-shell (Moderation nav item, visible only when user.role === MODERATOR || ADMIN).
+- API client: added adminDisputes() + adminResolve(loanId, action).
+- Verified: Admin user sees Moderation nav → dashboard loads with 1 dispute (Project Hail Mary, condition DAMAGED, issues "Cover torn" + "Pages water damaged") → three resolution buttons visible (Award to lender / Close without penalty / Ban borrower). Zero console errors.
+
+Stage Summary:
+- Full moderation dashboard with role-based access (USER/MODERATOR/ADMIN), dispute queue with evidence photos, and atomic escalation actions (award/close/ban) all running inside db.$transaction. Lint clean.

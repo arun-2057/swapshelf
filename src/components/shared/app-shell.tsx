@@ -18,6 +18,7 @@ import {
   Bell,
   Search,
   Sparkles,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppView } from "@/lib/types";
@@ -49,6 +50,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     },
     { view: "profile", label: "Profile", icon: UserRound },
   ];
+
+  // Add admin nav for moderators + admins
+  const isAdmin = user?.role === "ADMIN" || user?.role === "MODERATOR";
+  if (isAdmin) {
+    navItems.push({ view: "admin", label: "Moderation", icon: Shield });
+  }
 
   // When the user clicks "Messages" with no active loan, we still show
   // the loan list view. The loan view component handles both list + detail.

@@ -41,6 +41,7 @@ export interface User {
   neighborhood?: string | null;
   swapScore: number;
   frozen?: boolean;
+  role?: string; // USER | MODERATOR | ADMIN
   createdAt: string;
 }
 
@@ -123,6 +124,7 @@ export type AppView =
   | "discover"
   | "loan"
   | "profile"
+  | "admin"
   | "items";
 
 export interface DiscoverFilters {

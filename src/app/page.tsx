@@ -10,6 +10,7 @@ import { DashboardView } from "@/components/views/dashboard-view";
 import { DiscoverView } from "@/components/views/discover-view";
 import { LoanView } from "@/components/views/loan-view";
 import { ProfileView } from "@/components/views/profile-view";
+import { AdminDashboard } from "@/components/views/admin-dashboard";
 import { AddItemDialog } from "@/components/views/add-item-dialog";
 import { Logo } from "@/components/shared/logo";
 
@@ -43,6 +44,7 @@ export default function Home() {
       {view === "discover" && <DiscoverView />}
       {view === "loan" && <LoanView />}
       {view === "profile" && <ProfileView />}
+      {view === "admin" && <AdminDashboard />}
       <AddItemDialog />
     </AppShell>
   );

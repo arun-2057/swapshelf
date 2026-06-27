@@ -63,6 +63,7 @@ export function stripSelfUser(u: User | null | undefined): SelfUser | null {
     zipCode: u.zipCode,
     sessionToken: u.sessionToken,
     frozen: u.frozen,
+    role: u.role,
   };
 }
 
@@ -102,6 +103,12 @@ export function withErrorHandler<T extends unknown[]>(
             error:
               "Your account has been suspended due to a reported issue. Please contact support.",
           },
+          { status: 403 }
+        );
+      }
+      if (message === "FORBIDDEN") {
+        return Response.json(
+          { error: "You don't have permission to perform this action." },
           { status: 403 }
         );
       }

@@ -104,11 +104,32 @@ export async function requireUser() {
   if (!user) {
     throw new Error("UNAUTHORIZED");
   }
-  // Frozen accounts (e.g. stolen-item borrowers) can't take actions.
-  // They CAN still log in and view their dashboard (so they see why
-  // they're suspended), but all mutation endpoints are blocked.
   if (user.frozen) {
     throw new Error("ACCOUNT_FROZEN");
+  }
+  return user;
+}
+
+/**
+ * Require a moderator or admin. Frozen users are blocked even if
+ * they somehow have a mod role (defense in depth).
+ */
+export async function requireModerator() {
+  const user = await requireUser();
+  if (user.role !== "MODERATOR" && user.role !== "ADMIN") {
+    throw new Error("FORBIDDEN");
+  }
+  return user;
+}
+
+/**
+ * Require an admin. Used for the most destructive actions (banning
+ * users, force-closing loans).
+ */
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") {
+    throw new Error("FORBIDDEN");
   }
   return user;
 }
