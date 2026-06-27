@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { LoanStatusBadge } from "@/components/shared/badges";
 import {
@@ -57,11 +64,24 @@ interface Dispute {
   }>;
 }
 
+interface FullMessage {
+  id: string;
+  senderName: string;
+  senderAvatarUrl: string | null;
+  text: string;
+  systemEvent: string | null;
+  isSystem: boolean;
+  createdAt: string;
+}
+
 export function AdminDashboard() {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [fullChatOpen, setFullChatOpen] = useState(false);
+  const [fullChat, setFullChat] = useState<FullMessage[]>([]);
+  const [fullChatLoading, setFullChatLoading] = useState(false);
 
   const fetchDisputes = async () => {
     setLoading(true);
@@ -81,6 +101,22 @@ export function AdminDashboard() {
   useEffect(() => { void fetchDisputes(); }, []);
 
   const selected = disputes.find((d) => d.id === selectedId);
+
+  // Load the FULL chat history via the privileged admin route (not
+  // just the 50-message preview from the disputes list).
+  async function loadFullChat(loanId: string) {
+    setFullChatOpen(true);
+    setFullChatLoading(true);
+    setFullChat([]);
+    try {
+      const msgs = await api.adminMessages(loanId);
+      setFullChat(msgs);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load chat");
+    } finally {
+      setFullChatLoading(false);
+    }
+  }
 
   async function resolve(action: "AWARD_LENDER" | "CLOSE_WITHOUT_PENALTY" | "BAN_USER") {
     if (!selectedId || resolving) return;
@@ -298,6 +334,17 @@ export function AdminDashboard() {
                     ))
                   )}
                 </div>
+                {selected.recentMessages.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 w-full text-xs"
+                    onClick={() => loadFullChat(selected.id)}
+                  >
+                    <MessageSquare className="size-3" />
+                    View full chat history
+                  </Button>
+                )}
               </div>
             </motion.div>
           )}
@@ -349,6 +396,53 @@ export function AdminDashboard() {
           )}
         </div>
       )}
+
+      {/* Full chat history dialog */}
+      <Dialog open={fullChatOpen} onOpenChange={setFullChatOpen}>
+        <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b border-border bg-secondary/30 px-6 py-4">
+            <DialogTitle className="flex items-center gap-2 font-display text-lg">
+              <MessageSquare className="size-4 text-primary" />
+              Full Chat History
+            </DialogTitle>
+            <DialogDescription>
+              {selected?.title} — {selected?.borrower.name} ↔ {selected?.lender.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto scroll-fancy p-4">
+            {fullChatLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : fullChat.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No messages found.</p>
+            ) : (
+              <div className="space-y-2">
+                {fullChat.map((m) => (
+                  <div key={m.id} className="rounded-lg px-3 py-2 text-sm">
+                    {m.isSystem ? (
+                      <span className="text-muted-foreground italic">{m.text}</span>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <UserAvatar name={m.senderName} avatarUrl={m.senderAvatarUrl} size="xs" />
+                        <div className="flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-medium text-foreground">{m.senderName}</span>
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {format(new Date(m.createdAt), "MMM d, h:mm a")}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground">{m.text}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
