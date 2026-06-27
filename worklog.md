@@ -282,3 +282,17 @@ Key architectural insight: The API route handlers work independently of the sock
 
 Stage Summary:
 - Full network-drop test passed. Dispute resolution works while offline (DB writes succeed). Notifications persist and are visible on reconnect. The "Reconnecting…" banner provides clear UX feedback. Lint clean.
+
+---
+Task ID: real-time-landing-stats
+Agent: main
+Task: Replace hardcoded landing page stats + testimonial with real DB-driven data
+
+Work Log:
+- Created GET /api/stats (public, no auth): computes real platform metrics from the DB — items circulating (not REMOVED/STOLEN), active shelves (non-frozen users), completed swaps (RETURNED + RESOLVED loans), on-time return percentage (returnedDate <= dueDate), avg SwapScore. Falls back to zeros on error.
+- Created GET /api/testimonial (public, no auth): fetches the best revealed review (rating >= 4, has comment, most recent) with reviewer name/avatar/neighborhood/swapScore + completed swap count + tier derivation. Falls back to null (UI shows a "be the first" placeholder).
+- Updated LandingView: added useState + useEffect to fetch /api/stats and /api/testimonial on mount. Stats strip shows "—" placeholders while loading, then real numbers. Testimonial section shows the fallback "Join SwapShelf and be the first neighbor to share a review" when no reviews exist, or the real quote + author name + neighborhood + swap count + tier when one is available.
+- Verified: landing shows "24 items circulating, 5 active shelves, 2 completed swaps, 0% on-time returns" (real DB data). Testimonial shows the fallback (no revealed reviews with comments yet). Zero console errors.
+
+Stage Summary:
+- Landing page stats and testimonial are now fully real-time, driven by GET /api/stats and GET /api/testimonial. No hardcoded numbers. Lint clean.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useApp } from "@/store/app-store";
 import { Logo } from "@/components/shared/logo";
@@ -75,8 +76,56 @@ const steps = [
   },
 ];
 
+interface PlatformStats {
+  itemsCirculating: number;
+  activeShelves: number;
+  activeLoans: number;
+  completedSwaps: number;
+  onTimeReturns: number;
+  avgSwapScore: number;
+}
+
+interface Testimonial {
+  quote: string;
+  authorName: string;
+  authorInitial: string;
+  avatarUrl: string | null;
+  neighborhood: string;
+  swaps: number;
+  tier: string;
+  itemName: string;
+  rating: number;
+}
+
 export function LandingView() {
   const { setView } = useApp();
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [testimonial, setTestimonial] = useState<Testimonial | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+    fetch("/api/testimonial")
+      .then((r) => r.json())
+      .then((d) => setTestimonial(d.testimonial))
+      .catch(() => {});
+  }, []);
+
+  const statsArray = stats
+    ? [
+        { stat: stats.itemsCirculating.toLocaleString(), label: "Items circulating" },
+        { stat: stats.activeShelves.toLocaleString(), label: "Active shelves" },
+        { stat: stats.completedSwaps.toLocaleString(), label: "Completed swaps" },
+        { stat: `${stats.onTimeReturns}%`, label: "On-time returns" },
+      ]
+    : [
+        { stat: "—", label: "Items circulating" },
+        { stat: "—", label: "Active shelves" },
+        { stat: "—", label: "Completed swaps" },
+        { stat: "—", label: "On-time returns" },
+      ];
 
   return (
     <div className="flex min-h-screen flex-col bg-background paper-texture">
@@ -273,15 +322,10 @@ export function LandingView() {
         </div>
       </section>
 
-      {/* Stats strip */}
+      {/* Stats strip — real-time from /api/stats */}
       <section className="border-y border-border/60 bg-secondary/40">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-4 sm:px-6">
-          {[
-            { stat: "12,400+", label: "Items circulating" },
-            { stat: "1,860", label: "Active shelves" },
-            { stat: "3.1 mi", label: "Avg. borrow distance" },
-            { stat: "98%", label: "On-time returns" },
-          ].map((s) => (
+          {statsArray.map((s) => (
             <div key={s.label} className="text-center">
               <p className="font-display text-3xl font-bold text-primary">
                 {s.stat}
@@ -383,20 +427,38 @@ export function LandingView() {
           <div className="relative space-y-5">
             <Star className="size-8 fill-accent text-accent" />
             <blockquote className="font-display text-2xl font-medium leading-snug text-balance sm:text-3xl">
-              "I borrowed a copy of <em>Dune</em> from a neighbor I'd never met.
-              Three coffee-shop meetups later we have a standing board-game
-              night. SwapShelf is the warmest app on my phone."
+              {testimonial ? (
+                `"${testimonial.quote}"`
+              ) : (
+                "Join SwapShelf and be the first neighbor to share a review. Your story could be featured here."
+              )}
             </blockquote>
             <div className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center rounded-full bg-accent text-accent-foreground font-display font-bold">
-                M
-              </div>
-              <div>
-                <p className="font-semibold">Maya R.</p>
-                <p className="text-sm text-primary-foreground/70">
-                  Riverside · 18 swaps · Caretaker tier
-                </p>
-              </div>
+              {testimonial ? (
+                <>
+                  {testimonial.avatarUrl ? (
+                    <img
+                      src={testimonial.avatarUrl}
+                      alt={testimonial.authorName}
+                      className="size-11 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid size-11 place-items-center rounded-full bg-accent text-accent-foreground font-display font-bold">
+                      {testimonial.authorInitial}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-semibold">{testimonial.authorName}</p>
+                    <p className="text-sm text-primary-foreground/70">
+                      {testimonial.neighborhood} · {testimonial.swaps} swap{testimonial.swaps === 1 ? "" : "s"} · {testimonial.tier} tier
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="grid size-11 place-items-center rounded-full bg-accent/50 text-accent-foreground font-display font-bold">
+                  ?
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
