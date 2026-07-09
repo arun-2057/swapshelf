@@ -28,12 +28,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+
 .env*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Kilo config
+.kilo/
 
 # vercel
 .vercel
@@ -59,7 +62,7 @@ server.log
 # Python
 venv/
 .venv/
-env/
+.env
 ENV/
 __pycache__/
 *.py[cod]
@@ -108,3 +111,4 @@ downloads/
 *.sqlite
 *.sqlite3
 /data/
+/db/
