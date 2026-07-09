@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       await db.$transaction(async (tx) => {
         await tx.loan.update({
           where: { id: loan.id },
-          data: { status: "STOLEN" },
+          data: { status: "STOLEN", resolvedAt: new Date() },
         });
         await tx.item.update({
           where: { id: loan.itemId },
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
         await tx.message.create({
           data: {
             loanId: loan.id,
-            senderId: loan.lenderId,
+            senderId: null,
             text: "This loan has been automatically closed after 30 days of inactivity. The item is marked as stolen/lost and the borrower's account has been suspended.",
             systemEvent: "loan:auto_closed_zombie",
           },

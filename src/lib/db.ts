@@ -18,24 +18,15 @@ export type PrismaTransaction = Parameters<
 >[0]
 
 // Enable SQLite pragmas for optimal concurrency and integrity.
-// These are no-ops on PostgreSQL.
-//
-//   WAL             — Write-Ahead Logging: readers don't block writers
-//                     and writers don't block readers. Essential for
-//                     real-time chat + transactional loan updates.
-//   busy_timeout    — If a write lock IS contended (rare under WAL),
-//                     wait up to 5s before throwing SQLITE_BUSY instead
-//                     of failing immediately. This absorbs transient
-//                     contention from concurrent transactions.
-//   foreign_keys    — Enforce referential integrity at the DB level
-//                     (ON DELETE CASCADE, etc.). SQLite has this OFF
-//                     by default for backwards compat; we want it ON.
-if (process.env.NODE_ENV !== 'production') {
+// These are required only on SQLite (local dev). On PostgreSQL (Vercel
+// / Neon / Supabase) they are skipped — Postgres handles WAL, FKs, and
+// locking at the engine level.
+if (process.env.NODE_ENV !== 'production' && process.env.DATABASE_URL?.startsWith('file:')) {
   const setup = async () => {
     try {
-      await db.$executeRawUnsafe`PRAGMA journal_mode=WAL;`
-      await db.$executeRawUnsafe`PRAGMA busy_timeout=5000;`
-      await db.$executeRawUnsafe`PRAGMA foreign_keys=ON;`
+      await db.$executeRawUnsafe("PRAGMA journal_mode=WAL;")
+      await db.$executeRawUnsafe("PRAGMA busy_timeout=5000;")
+      await db.$executeRawUnsafe("PRAGMA foreign_keys=ON;")
     } catch {}
   }
   void setup()

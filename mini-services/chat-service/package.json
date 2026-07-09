@@ -4,10 +4,11 @@
   "description": "SwapShelf real-time loan chat WebSocket mini-service (socket.io) on port 3003",
   "type": "module",
   "scripts": {
-    "dev": "bun --hot index.ts",
-    "start": "bun index.ts"
+    "dev": "tsx --watch index.ts",
+    "start": "tsx index.ts"
   },
   "dependencies": {
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "tsx": "^4.7.0"
   }
 }

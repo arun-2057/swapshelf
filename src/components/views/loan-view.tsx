@@ -63,7 +63,6 @@ export function LoanView() {
 
   useEffect(() => {
     // Intentional: drive mobile detail visibility from active loan
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowMobileDetail(!!activeLoan);
   }, [activeLoan]);
 
@@ -214,7 +213,6 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
   useEffect(() => {
     let cancelled = false;
     // Intentional: reset cached history when switching loans
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingHistory(true);
     setMessages([]);
     api.messages(loan.id).then((msgs) => {
@@ -241,7 +239,6 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
     loanId: loan.id,
     userId: user?.id || null,
     userName: user?.name || null,
-    initialHistory: messages,
   });
 
   // Use live messages if they're richer, else fallback to loaded ones
@@ -493,7 +490,7 @@ function ActionBar({
   const [busy, setBusy] = useState(false);
   const s = loan.status;
 
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<void> | void) {
     setBusy(true);
     await fn();
     setBusy(false);
@@ -677,6 +674,13 @@ function ActionBar({
 }
 
 // ---------------- Meetup widget ----------------
+
+const SAFE_MEETUP_SPOTS = [
+  { name: "Maple & Vine Coffee House", address: "442 Maple Avenue", lat: 40.7282, lon: -73.9942 },
+  { name: "Riverside Park Pavilion", address: "78 Riverwalk West", lat: 40.7262, lon: -73.9882 },
+  { name: "Cedar Grove Library", address: "101 Cedar Lane", lat: 40.7302, lon: -73.9922 },
+  { name: "Old Town Community Center", address: "55 Main Street", lat: 40.7242, lon: -73.9962 },
+] as const;
 
 function MeetupWidget({
   loan,

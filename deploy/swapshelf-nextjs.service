@@ -1,0 +1,20 @@
+[Unit]
+Description=SwapShelf Next.js API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/swapshelf
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/swapshelf/.env
+ExecStartPre=/usr/bin/test -f /opt/swapshelf/.env
+ExecStart=/usr/bin/node .next/standalone/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=swapshelf-nextjs
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

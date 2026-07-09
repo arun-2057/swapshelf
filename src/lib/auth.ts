@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { cookies, headers } from "next/headers";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 // DB-backed sessions with hybrid auth.
 //
@@ -14,19 +15,15 @@ import { randomUUID } from "crypto";
 const SESSION_COOKIE = "swapshelf_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-// Simple synchronous-ish hashing for demo (NOT for production passwords)
-function hashPassword(password: string): string {
-  let h = 0x811c9dc5;
-  const salted = `swapshelf::${password}::v1`;
-  for (let i = 0; i < salted.length; i++) {
-    h ^= salted.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return `h${(h >>> 0).toString(16)}`;
+// Production-ready password hashing with bcrypt
+const SALT_ROUNDS = 12;
+
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return hashPassword(password) === hash;
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
 
 export { hashPassword };

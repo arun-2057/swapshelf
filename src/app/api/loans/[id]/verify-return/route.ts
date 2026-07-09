@@ -83,6 +83,6 @@ export const POST = withErrorHandler(
       return tx.loan.findUnique({ where: { id: loan.id }, include: loanInclude });
     });
 
-    return NextResponse.json(serializeLoan({ ...refreshed!, lastMessage: null }, me.id));
+    return NextResponse.json(serializeLoan({ ...refreshed!, lastMessage: null }));
   }
 );

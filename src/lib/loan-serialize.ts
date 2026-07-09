@@ -77,7 +77,7 @@ export interface SerializedLoan {
   lastMessage: {
     id: string;
     loanId: string;
-    senderId: string;
+    senderId: string | null;
     text: string;
     systemEvent: string | null;
     createdAt: string;
@@ -172,4 +172,5 @@ export const loanInclude = {
   borrower: true,
   lender: true,
   meetup: true,
+  returnVerification: true,
 } as const;

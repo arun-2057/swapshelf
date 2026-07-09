@@ -22,10 +22,13 @@ export type LoanStatus =
   | "DECLINED"
   | "MEETING_SCHEDULED"
   | "BORROWED"
+  | "DUE_SOON"
   | "OVERDUE"
   | "RETURNED"
+  | "RESOLVED"
   | "STOLEN"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "DISPUTED";
 
 export interface User {
   id: string;

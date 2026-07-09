@@ -56,7 +56,7 @@ interface Dispute {
   } | null;
   recentMessages: Array<{
     id: string;
-    senderId: string;
+    senderId: string | null;
     senderName: string;
     text: string;
     systemEvent: string | null;

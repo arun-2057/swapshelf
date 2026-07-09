@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser, hashPassword } from "@/lib/auth";
 import { withErrorHandler } from "@/lib/serialize";
+import type { User } from "@prisma/client";
 
 // POST /api/seed
 // Create rich demo data for the current user IF they have no items yet:
@@ -281,7 +282,7 @@ export const POST = withErrorHandler(async () => {
     },
   ];
 
-  const createdNeighbors = [];
+  const createdNeighbors: User[] = [];
   for (const n of neighbors) {
     const lat = centerLat + n.offsetLat;
     const lon = centerLon + n.offsetLon;
@@ -299,7 +300,7 @@ export const POST = withErrorHandler(async () => {
       create: {
         name: n.name,
         email: n.email,
-        passwordHash: hashPassword("swapshelf-demo"),
+        passwordHash: await hashPassword("swapshelf-demo"),
         bio: n.bio,
         avatarUrl: n.avatarUrl,
         latitude: lat,

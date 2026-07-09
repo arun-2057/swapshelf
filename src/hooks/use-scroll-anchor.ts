@@ -68,7 +68,6 @@ export function useScrollAnchor<T extends HTMLElement>(
       el.scrollTop = el.scrollHeight;
       didInitialJumpRef.current = true;
       // Intentional: set state on initial load to establish baseline
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAtBottom(true);
       return;
     }

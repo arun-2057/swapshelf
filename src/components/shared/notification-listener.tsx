@@ -47,7 +47,10 @@ export function NotificationListener() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const socket = io("/?XTransformPort=3003", {
+    const isDevPort3000 = typeof window !== "undefined" && window.location.port === "3000";
+    const socketUrl = isDevPort3000 ? "http://localhost:3003" : "/?XTransformPort=3003";
+
+    const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       forceNew: true,
       reconnection: true,

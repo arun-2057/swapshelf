@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { haversineMiles } from "@/lib/geo";
-import { stripItemOwner, withErrorHandler } from "@/lib/serialize";
+import { haversineMiles, fuzzyDistance } from "@/lib/geo";
+import { withErrorHandler } from "@/lib/serialize";
 import type { ItemType, ItemCondition } from "@/lib/types";
 
 // GET /api/items/discover?type=&condition=&availability=&radius=&q=
 // Returns items within `radius` miles of the current user. Excludes items
-// owned by the current user and items with status REMOVED. Each item
-// carries a `distanceMiles` field (rounded to 2 decimals), sorted nearest first.
+// owned by the current user and flagged (disputed/stolen) items. Each item
+// carries a privacy-preserving `distanceString` field (fuzzyDistance),
+// never exact coordinates.
 export const GET = withErrorHandler(async (req: Request) => {
   const me = await requireUser();
   const { searchParams } = new URL(req.url);
@@ -23,58 +24,35 @@ export const GET = withErrorHandler(async (req: Request) => {
   const radius = Number(searchParams.get("radius") || "5");
   const q = (searchParams.get("q") || "").trim();
 
-  const where: {
-    ownerId: { not: string };
-    status?: { in: string[] };
-    type?: string;
-    condition?: string;
-    AND?: { OR: { title: { contains: string }; creator?: { contains: string } }[] }[];
-  } = {
+  const where = {
     ownerId: { not: me.id },
+    flagged: false,
+    ...(availability === "available"
+      ? { status: { in: ["AVAILABLE"] as const } }
+      : { status: { in: ["AVAILABLE", "REQUESTED", "IN_TRANSIT", "BORROWED", "RETURNED"] as const } }),
+    ...(type && type !== "ALL" ? { type } : {}),
+    ...(condition && condition !== "ALL" ? { condition } : {}),
+    ...(q
+      ? {
+          AND: [
+            {
+              OR: [{ title: { contains: q } }, { creator: { contains: q } }],
+            },
+          ],
+        }
+      : {}),
   };
 
-  if (availability === "available") {
-    where.status = { in: ["AVAILABLE"] };
-  } else {
-    // "all" — include everything except REMOVED and STOLEN
-    where.status = {
-      in: ["AVAILABLE", "REQUESTED", "IN_TRANSIT", "BORROWED", "RETURNED"],
-    };
-  }
-
-  // Always exclude STOLEN items and flagged items from discovery —
-  // they're under dispute or permanently removed from circulation.
-  where.AND = [
-    ...(where.AND || []),
-    { flagged: false },
-  ] as typeof where.AND;
-
-  if (type && type !== "ALL") {
-    where.type = type;
-  }
-  if (condition && condition !== "ALL") {
-    where.condition = condition;
-  }
-
-  if (q) {
-    // SQLite is case-insensitive for ASCII by default with LIKE; we use contains
-    // which Prisma translates to LIKE. Wrap in OR for title/creator.
-    where.AND = [
-      {
-        OR: [{ title: { contains: q } }, { creator: { contains: q } }],
-      },
-    ];
-  }
-
   const items = await db.item.findMany({
-    where,
+    where: where as Parameters<typeof db.item.findMany>[0] extends { where: infer W } ? W : never,
     include: { owner: true },
   });
 
-  // Compute distance from the current user to each item's owner.
-  const enriched = items
+  // Server-side Haversine filtering and fuzzy distance mapping.
+  // Exact coordinates are never sent to the client.
+  const discoveredItems = items
     .map((i) => {
-      const dist = haversineMiles(
+      const exactDistance = haversineMiles(
         me.latitude,
         me.longitude,
         i.owner.latitude,
@@ -82,23 +60,24 @@ export const GET = withErrorHandler(async (req: Request) => {
       );
       return {
         id: i.id,
-        ownerId: i.ownerId,
-        type: i.type,
         title: i.title,
-        creator: i.creator,
-        isbn: i.isbn,
-        imageUrl: i.imageUrl,
+        type: i.type,
         condition: i.condition,
-        description: i.description,
-        status: i.status,
-        createdAt: i.createdAt.toISOString(),
-        updatedAt: i.updatedAt.toISOString(),
-        owner: stripItemOwner(i.owner),
-        distanceMiles: Math.round(dist * 100) / 100,
+        ownerName: i.owner.name,
+        ownerScore: i.owner.swapScore,
+        distanceString: fuzzyDistance(exactDistance),
       };
     })
-    .filter((i) => i.distanceMiles <= radius)
-    .sort((a, b) => a.distanceMiles - b.distanceMiles);
+    .filter((i) => {
+      const numeric =
+        parseFloat(i.distanceString) || 0;
+      return numeric <= radius || i.distanceString === "around the corner";
+    })
+    .sort((a, b) => {
+      const distA = parseFloat(a.distanceString) || 0;
+      const distB = parseFloat(b.distanceString) || 0;
+      return distA - distB;
+    });
 
-  return NextResponse.json(enriched);
+  return NextResponse.json({ items: discoveredItems });
 });

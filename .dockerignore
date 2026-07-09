@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+dist
+.git
+coverage
+*.log
+backups
+prisma/prisma
+!prisma/schema.prisma

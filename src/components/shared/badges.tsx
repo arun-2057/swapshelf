@@ -24,10 +24,13 @@ const loanStatusStyles: Record<LoanStatus, string> = {
   DECLINED: "bg-muted text-muted-foreground border-border",
   MEETING_SCHEDULED: "bg-accent/15 text-accent border-accent/30",
   BORROWED: "bg-teal-500/15 text-teal-700 border-teal-500/30 dark:text-teal-300",
+  DUE_SOON: "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300",
   OVERDUE: "bg-destructive/15 text-destructive border-destructive/40",
   RETURNED: "bg-muted text-muted-foreground border-border",
+  RESOLVED: "bg-muted text-muted-foreground border-border",
   STOLEN: "bg-destructive/25 text-destructive border-destructive/50 font-bold",
   CANCELLED: "bg-muted text-muted-foreground border-border",
+  DISPUTED: "bg-destructive/15 text-destructive border-destructive/40",
 };
 
 const loanStatusLabel: Record<LoanStatus, string> = {
@@ -36,10 +39,13 @@ const loanStatusLabel: Record<LoanStatus, string> = {
   DECLINED: "Declined",
   MEETING_SCHEDULED: "Meetup Set",
   BORROWED: "Borrowed",
+  DUE_SOON: "Due Soon",
   OVERDUE: "Overdue",
   RETURNED: "Returned",
+  RESOLVED: "Resolved",
   STOLEN: "Stolen/Lost",
   CANCELLED: "Cancelled",
+  DISPUTED: "Disputed",
 };
 
 const itemStatusLabel: Record<ItemStatus, string> = {

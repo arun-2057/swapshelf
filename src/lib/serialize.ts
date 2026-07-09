@@ -3,6 +3,7 @@
 // precise location to themselves.
 
 import type { User } from "@prisma/client";
+import { buildRequestLogger } from "@/lib/logger";
 
 export interface PublicUser {
   id: string;
@@ -21,12 +22,11 @@ export interface SelfUser extends PublicUser {
   zipCode?: string | null;
   sessionToken?: string | null;
   frozen?: boolean;
+  role?: string;
 }
 
 /**
  * Safe public user object — no passwordHash, no lat/lon, no zipCode.
- * Use this when returning OTHER users (item owners, loan counterparties,
- * reviewers, profile views).
  */
 export function stripUser(u: User | null | undefined): PublicUser | null {
   if (!u) return null;
@@ -43,9 +43,7 @@ export function stripUser(u: User | null | undefined): PublicUser | null {
 }
 
 /**
- * The CURRENT user's own object. Still strips passwordHash but keeps
- * latitude/longitude/zipCode so the client can render the onboarding map
- * and discover radius correctly.
+ * The CURRENT user's own object. Still strips passwordHash but keeps latitude/longitude/zipCode.
  */
 export function stripSelfUser(u: User | null | undefined): SelfUser | null {
   if (!u) return null;
@@ -68,8 +66,7 @@ export function stripSelfUser(u: User | null | undefined): SelfUser | null {
 }
 
 /**
- * Minimal owner shape for discover results. Only the fields the UI needs
- * to render a card without leaking another member's exact address.
+ * Minimal owner shape for discover results.
  */
 export function stripItemOwner(u: User | null | undefined) {
   if (!u) return null;
@@ -82,36 +79,67 @@ export function stripItemOwner(u: User | null | undefined) {
   };
 }
 
-/**
- * Wrap an async route handler so any "UNAUTHORIZED" error thrown by
- * requireUser() becomes a clean 401 response. Other errors return 500.
- */
 export function withErrorHandler<T extends unknown[]>(
   fn: (...args: T) => Promise<Response>
 ): (...args: T) => Promise<Response> {
   return async (...args: T) => {
+    const request = args[0];
+    let path = "unknown";
+    let method = "UNKNOWN";
+    let requestId: string | undefined;
+
+    if (request instanceof Request) {
+      method = request.method;
+      try {
+        const url = new URL(request.url);
+        path = url.pathname;
+      } catch {
+        path = "unknown";
+      }
+    }
+
+    requestId = request instanceof Request
+      ? request.headers.get("x-request-id") || undefined
+      : undefined;
+
+    const logger = buildRequestLogger({
+      msg: path,
+      method,
+      path,
+      requestId,
+    });
+
     try {
-      return await fn(...args);
+      const response = await fn(...args);
+      const status = response.status;
+      logger.complete(status);
+      return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (message === "UNAUTHORIZED") {
+      const status =
+        message === "UNAUTHORIZED"
+          ? 401
+          : message === "ACCOUNT_FROZEN" || message === "FORBIDDEN"
+          ? 403
+          : 500;
+
+      logger.complete(status);
+
+      if (status === 401) {
         return Response.json({ error: "Please sign in" }, { status: 401 });
       }
-      if (message === "ACCOUNT_FROZEN") {
+      if (status === 403) {
         return Response.json(
           {
             error:
-              "Your account has been suspended due to a reported issue. Please contact support.",
+              message === "ACCOUNT_FROZEN"
+                ? "Your account has been suspended due to a reported issue. Please contact support."
+                : "You don't have permission to perform this action.",
           },
           { status: 403 }
         );
       }
-      if (message === "FORBIDDEN") {
-        return Response.json(
-          { error: "You don't have permission to perform this action." },
-          { status: 403 }
-        );
-      }
+
       console.error("[api] unhandled error:", err);
       return Response.json(
         { error: message || "Internal server error" },

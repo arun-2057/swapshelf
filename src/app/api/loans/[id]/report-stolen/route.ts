@@ -100,7 +100,7 @@ export const POST = withErrorHandler(
     });
 
     return NextResponse.json(
-      serializeLoan({ ...refreshed!, lastMessage: null }, me.id)
+      serializeLoan({ ...refreshed!, lastMessage: null })
     );
   }
 );

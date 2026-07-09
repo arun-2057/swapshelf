@@ -1,0 +1,18 @@
+
+> nextjs_tailwind_shadcn_ts@0.2.0 lint
+> eslint .
+
+
+/media/external/Project/swapshelf/jest.config.js
+  1:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+/media/external/Project/swapshelf/src/components/views/loan-view.tsx
+   66:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  217:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+/media/external/Project/swapshelf/src/hooks/use-scroll-anchor.ts
+  71:7  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+✖ 4 problems (0 errors, 4 warnings)
+  0 errors and 3 warnings potentially fixable with the `--fix` option.
+

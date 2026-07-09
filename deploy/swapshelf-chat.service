@@ -1,0 +1,19 @@
+[Unit]
+Description=SwapShelf Chat Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/swapshelf/mini-services/chat-service
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/swapshelf/.env
+ExecStartPre=/usr/bin/test -f /opt/swapshelf/.env
+ExecStart=/usr/bin/npx tsx index.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=swapshelf-chat
+
+[Install]
+WantedBy=multi-user.target

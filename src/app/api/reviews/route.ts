@@ -68,6 +68,8 @@ export const POST = withErrorHandler(async (req: Request) => {
       reviewerId: me.id,
       revieweeId,
       rating,
+      punctualityScore: rating,
+      careScore: rating,
       comment: body.comment?.trim() || null,
       isRevealed: false,
     },

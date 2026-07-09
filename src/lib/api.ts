@@ -238,6 +238,7 @@ export const api = {
         recentMessages: Array<{
           id: string;
           senderId: string;
+          senderName: string;
           text: string;
           systemEvent: string | null;
           createdAt: string;
