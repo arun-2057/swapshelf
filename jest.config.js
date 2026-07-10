@@ -1,8 +1,20 @@
 const jestConfig = {
   testEnvironment: "node",
   testMatch: ["**/tests/**/*.test.ts", "**/tests/**/*.test.js"],
+  preset: "ts-jest",
   transform: {
-    "^.+\\.(ts|tsx)$": ["ts-jest", { tsconfig: { esModuleInterop: true } }],
+    "^.+\\.(ts|tsx)$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          esModuleInterop: true,
+          baseUrl: ".",
+          paths: {
+            "@/*": ["src/*"],
+          },
+        },
+      },
+    ],
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
