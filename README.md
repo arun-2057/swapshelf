@@ -160,8 +160,8 @@ scattered booleans. `bootstrap()` hydrates the session on first paint.
 ## Getting started
 
 ```bash
-# 1. Install dependencies
-npm install
+# 1. Install dependencies from the committed lockfile
+npm ci
 
 # 2. Generate the Prisma client and sync the schema
 npm run db:generate

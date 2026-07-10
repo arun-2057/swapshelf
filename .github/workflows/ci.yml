@@ -14,8 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install --package-lock-only
-      - run: npm install
+      - run: npm install -g npm@10
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
+      - run: npm ci
       - run: npm run lint
 
   test:
@@ -26,6 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - run: npm install -g npm@10
       - uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -43,6 +49,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - run: npm install -g npm@10
       - uses: actions/cache@v4
         with:
           path: ~/.npm
