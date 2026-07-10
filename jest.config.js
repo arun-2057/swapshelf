@@ -13,9 +13,11 @@ const jestConfig = {
             "@/*": ["src/*"],
           },
         },
+        useESM: true,
       },
     ],
   },
+  extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
