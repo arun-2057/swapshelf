@@ -224,8 +224,8 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
   useEffect(() => {
     if (!loanId || !userId || !userName) return;
 
-    const isDevPort3000 = typeof window !== "undefined" && window.location.port === "3000";
-    const socketUrl = isDevPort3000 ? "http://localhost:3003" : "/?XTransformPort=3003";
+    const socketUrl =
+      process.env.NEXT_PUBLIC_CHAT_SERVICE_ORIGIN || "http://localhost:3003";
 
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],

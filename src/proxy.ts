@@ -28,7 +28,7 @@ const STATIC_ASSET_EXTENSIONS = [
 
 const CHAT_SERVICE_ORIGIN = process.env.CHAT_SERVICE_ORIGIN || "";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/health") {
@@ -94,6 +94,14 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - _next/data (static JSON data files)
+     * - _next/font (static font files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|_next/data|_next/font|favicon.ico).*)',
   ],
 };

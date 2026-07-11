@@ -72,7 +72,7 @@ handlers under `src/app/api/**` are the server.
    transports (authorization header, `x-session-token`, or the
    `swapshelf_session` cookie). The token is a DB-backed `sessionToken` on the
    `User` row.
-2. **Middleware** — `src/middleware.ts` guards authenticated routes and applies
+2. **Proxy** — `src/proxy.ts` guards authenticated routes and applies
    rate-limiting policies before handler execution.
 3. **Handlers** — each route uses `withErrorHandler` + a Zod `safeParse` of the
    body, then talks to Prisma inside a transaction where consistency matters
@@ -204,10 +204,10 @@ curated values when the database is empty so the page never looks dead.
 ```
 swapshelf/
 ├── src/
-│   ├── app/                     # App Router: pages + API route handlers
+│   ├── proxy.ts                  # route guard + rate limiting
+│   ├── app/                      # App Router: pages + API route handlers
 │   │   ├── page.tsx             # landing page (root route)
 │   │   ├── globals.css          # OKLCH theme tokens + paper-texture
-│   │   ├── middleware.ts        # route guard + rate limiting
 │   │   └── api/
 │   │       ├── auth/            # login, logout, signup, me
 │   │       ├── items/           # item CRUD + discover (geo-filtered)

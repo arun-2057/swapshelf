@@ -55,8 +55,7 @@ test
 prompt
 
 server.log
-# Skills directory
-/skills/
+
 
 .zscripts
 
@@ -77,7 +76,6 @@ downloads/
 eggs/
 .eggs/
 !src/lib/
-lib/
 lib64/
 parts/
 sdist/
