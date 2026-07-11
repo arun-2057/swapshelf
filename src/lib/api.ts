@@ -70,6 +70,10 @@ export const api = {
     name: string;
     email: string;
     password: string;
+    latitude?: number;
+    longitude?: number;
+    zipCode?: string;
+    neighborhood?: string;
   }) =>
     request<User>("/api/auth/signup", {
       method: "POST",

@@ -24,13 +24,14 @@ import {
   Inbox,
   Loader2,
   Wand2,
+  MapIcon,
 } from "lucide-react";
 import type { Loan } from "@/lib/types";
 import { fuzzyDistance } from "@/lib/geo";
 import { toast } from "sonner";
 
 export function DashboardView() {
-  const { user, myItems, loans, setView, openLoan, setAddItemOpen, refreshMyItems, refreshLoans } = useApp();
+  const { user, myItems, loans, setView, openLoan, setAddItemOpen, refreshMyItems, refreshLoans, discoverViewMode, setDiscoverViewMode } = useApp();
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
@@ -194,6 +195,17 @@ export function DashboardView() {
             >
               <Plus className="size-4 text-accent" />
               Add an item to lend
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                setDiscoverViewMode("map");
+                setView("discover");
+              }}
+            >
+              <MapIcon className="size-4 text-primary" />
+              View map
             </Button>
             <Button
               variant="outline"

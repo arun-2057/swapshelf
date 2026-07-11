@@ -60,19 +60,21 @@ export function NotificationListener() {
     });
     socketRef.current = socket;
 
-    socket.on("connect", () => {
+    const handleConnect = () => {
       setConnectionState("connected");
       socket.emit("join-user", { userId: user.id });
 
-      // If we were previously disconnected, flash "Back online"
       if (!wasConnected.current) {
         wasConnected.current = true;
         setShowBackOnline(true);
         setTimeout(() => setShowBackOnline(false), 2500);
       }
-    });
+    };
 
-    socket.io.on("reconnect_attempt", () => {
+    socket.on("connect", handleConnect);
+    socket.on("reconnect", handleConnect);
+
+    socket.on("reconnect_attempt", () => {
       setConnectionState("reconnecting");
       wasConnected.current = false;
     });

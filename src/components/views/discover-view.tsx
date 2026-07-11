@@ -36,9 +36,9 @@ import { toast } from "sonner";
 import { RequestLoanDialog } from "@/components/views/request-loan-dialog";
 
 export function DiscoverView() {
-  const { user, filters, setFilters, discoverItems, discoverLoading, refreshDiscover } =
+  const { user, filters, setFilters, discoverItems, discoverLoading, refreshDiscover, discoverViewMode, setDiscoverViewMode } =
     useApp();
-  const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "map">(discoverViewMode);
   const [requestItem, setRequestItem] = useState<Item | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -82,7 +82,12 @@ export function DiscoverView() {
           <ToggleGroup
             type="single"
             value={viewMode}
-            onValueChange={(v) => v && setViewMode(v as "grid" | "map")}
+            onValueChange={(v) => {
+              if (!v) return;
+              const mode = v as "grid" | "map";
+              setViewMode(mode);
+              setDiscoverViewMode(mode);
+            }}
             className="rounded-lg border border-border bg-card p-0.5"
           >
             <ToggleGroupItem

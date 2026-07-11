@@ -36,7 +36,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, latitude, longitude, zipCode, neighborhood } = parsed.data;
   const identifier = ip || email || "unknown";
 
   const limited = rateLimit(`signup:${identifier}`);
@@ -62,8 +62,10 @@ export const POST = withErrorHandler(async (req: Request) => {
       name,
       email,
       passwordHash: await hashPassword(password),
-      latitude: 0,
-      longitude: 0,
+      latitude: typeof latitude === "number" ? latitude : 0,
+      longitude: typeof longitude === "number" ? longitude : 0,
+      zipCode: zipCode || null,
+      neighborhood: neighborhood || null,
       swapScore: 50,
     },
   });

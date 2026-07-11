@@ -38,8 +38,11 @@ interface AppState {
 
   outbox: OutboxMessage[];
 
+  discoverViewMode: "grid" | "map";
+  setDiscoverViewMode: (mode: "grid" | "map") => void;
+
   bootstrap: () => Promise<void>;
-  doSignup: (name: string, email: string, password: string) => Promise<void>;
+  doSignup: (name: string, email: string, password: string, location?: { latitude: number; longitude: number; zipCode?: string; neighborhood?: string }) => Promise<void>;
   doLogin: (email: string, password: string) => Promise<void>;
   doLogout: () => Promise<void>;
   setLocation: (lat: number, lon: number, zip?: string, neighborhood?: string) => Promise<void>;
@@ -93,6 +96,7 @@ export const useApp = create<AppState>()(
       request_item_id: null,
 
       outbox: [],
+      discoverViewMode: "grid",
 
       bootstrap: async () => {
         set({ authLoading: true, authError: null });
@@ -115,11 +119,15 @@ export const useApp = create<AppState>()(
         }
       },
 
-      doSignup: async (name, email, password) => {
+      doSignup: async (name, email, password, location) => {
         set({ authError: null });
         try {
-          const user = await api.signup({ name, email, password });
-          set({ user, view: "onboarding" });
+          const user = await api.signup({ name, email, password, ...location });
+          const needsOnboarding = user.latitude === 0 && user.longitude === 0;
+          set({
+            user,
+            view: needsOnboarding ? "onboarding" : "dashboard",
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Signup failed";
           set({ authError: msg });
@@ -193,6 +201,7 @@ export const useApp = create<AppState>()(
         set({ filters: { ...get().filters, ...f } });
         void get().refreshDiscover();
       },
+      setDiscoverViewMode: (mode) => set({ discoverViewMode: mode }),
 
       refreshMyItems: async () => {
         try {
@@ -274,7 +283,7 @@ export const useApp = create<AppState>()(
     }),
     {
       name: "swapshelf-storage",
-      partialize: (state) => ({ outbox: state.outbox }),
+      partialize: (state) => ({ outbox: state.outbox, discoverViewMode: state.discoverViewMode }),
       storage: createJSONStorage(() => localStorage),
     }
   )

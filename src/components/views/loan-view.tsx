@@ -50,6 +50,7 @@ import { useScrollAnchor } from "@/hooks/use-scroll-anchor";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReviewDialog } from "@/components/views/review-dialog";
+import { SAFE_MEETUP_SPOTS, type MeetupSpotTemplate, offsetToCoords } from "@/lib/geo";
 
 export function LoanView() {
   const { loans, activeLoanId, openLoan, user, refreshLoans } = useApp();
@@ -388,6 +389,8 @@ function LoanDetail({ loan, onBack }: { loan: Loan; onBack: () => void }) {
         loan={loan}
         isBorrower={!!isBorrower}
         currentUserId={user?.id || ""}
+        userLat={user?.latitude || 0}
+        userLon={user?.longitude || 0}
         onSuggest={async (spot) => {
           try {
             const updated = await api.setMeetup(loan.id, {
@@ -675,23 +678,20 @@ function ActionBar({
 
 // ---------------- Meetup widget ----------------
 
-const SAFE_MEETUP_SPOTS = [
-  { name: "Maple & Vine Coffee House", address: "442 Maple Avenue", lat: 40.7282, lon: -73.9942 },
-  { name: "Riverside Park Pavilion", address: "78 Riverwalk West", lat: 40.7262, lon: -73.9882 },
-  { name: "Cedar Grove Library", address: "101 Cedar Lane", lat: 40.7302, lon: -73.9922 },
-  { name: "Old Town Community Center", address: "55 Main Street", lat: 40.7242, lon: -73.9962 },
-] as const;
-
 function MeetupWidget({
   loan,
   isBorrower,
   currentUserId,
+  userLat,
+  userLon,
   onSuggest,
   onAgree,
 }: {
   loan: Loan;
   isBorrower: boolean;
   currentUserId: string;
+  userLat: number;
+  userLon: number;
   onSuggest: (spot: { name: string; address?: string; lat: number; lon: number }) => void;
   onAgree: () => void;
 }) {
@@ -778,7 +778,8 @@ function MeetupWidget({
                 <button
                   key={spot.name}
                   onClick={() => {
-                    onSuggest(spot);
+                    const { lat, lon } = offsetToCoords(userLat, userLon, spot.offsetMilesLat, spot.offsetMilesLon);
+                    onSuggest({ name: spot.name, address: spot.address, lat, lon });
                     setPickerOpen(false);
                   }}
                   className="flex items-center gap-2 rounded-lg p-2 text-left transition hover:bg-secondary/60"

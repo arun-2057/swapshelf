@@ -17,66 +17,7 @@ import {
   Globe,
 } from "lucide-react";
 import { toast } from "sonner";
-
-// Global neighborhood presets — spanning six continents so users
-// anywhere can find a plausible home base.
-interface Preset {
-  name: string;
-  city: string;
-  region: string;
-  lat: number;
-  lon: number;
-  zip: string;
-}
-
-const presetNeighborhoods: Preset[] = [
-  // North America
-  { name: "Maple Heights", city: "New York", region: "North America", lat: 40.735, lon: -73.99, zip: "10010" },
-  { name: "Williamsburg", city: "New York", region: "North America", lat: 40.7142, lon: -73.9614, zip: "11211" },
-  { name: "Mission District", city: "San Francisco", region: "North America", lat: 37.7599, lon: -122.4148, zip: "94110" },
-  { name: "Capitol Hill", city: "Seattle", region: "North America", lat: 47.6251, lon: -122.3217, zip: "98102" },
-  { name: "Wicker Park", city: "Chicago", region: "North America", lat: 41.9088, lon: -87.6796, zip: "60622" },
-  { name: "Plateau", city: "Montréal", region: "North America", lat: 45.5247, lon: -73.575, zip: "H2T" },
-  { name: "Roma Norte", city: "Mexico City", region: "North America", lat: 19.4174, lon: -99.1634, zip: "06700" },
-
-  // South America
-  { name: "Vila Madalena", city: "São Paulo", region: "South America", lat: -23.5542, lon: -46.6905, zip: "05435" },
-  { name: "Palermo", city: "Buenos Aires", region: "South America", lat: -34.5889, lon: -58.4314, zip: "1414" },
-  { name: "Belén", city: "Lima", region: "South America", lat: -12.0464, lon: -77.0428, zip: "15086" },
-  { name: "La Candelaria", city: "Bogotá", region: "South America", lat: 4.572, lon: -74.073, zip: "110321" },
-
-  // Europe
-  { name: "Hackney", city: "London", region: "Europe", lat: 51.545, lon: -0.0556, zip: "E8" },
-  { name: "Le Marais", city: "Paris", region: "Europe", lat: 48.8566, lon: 2.3614, zip: "75004" },
-  { name: "Kreuzberg", city: "Berlin", region: "Europe", lat: 52.4995, lon: 13.425, zip: "10999" },
-  { name: "Trastevere", city: "Rome", region: "Europe", lat: 41.8896, lon: 12.4695, zip: "00153" },
-  { name: "De Pijp", city: "Amsterdam", region: "Europe", lat: 52.3535, lon: 4.8917, zip: "1073" },
-  { name: "Gràcia", city: "Barcelona", region: "Europe", lat: 41.4022, lon: 2.1564, zip: "08012" },
-  { name: "Södermalm", city: "Stockholm", region: "Europe", lat: 59.313, lon: 18.073, zip: "11620" },
-  { name: "Príncipe Real", city: "Lisbon", region: "Europe", lat: 38.7143, lon: -9.1485, zip: "1250" },
-
-  // Asia
-  { name: "Shimokitazawa", city: "Tokyo", region: "Asia", lat: 35.661, lon: 139.6692, zip: "155-0031" },
-  { name: "Hongdae", city: "Seoul", region: "Asia", lat: 37.556, lon: 126.9236, zip: "04000" },
-  { name: "Bandra West", city: "Mumbai", region: "Asia", lat: 19.0596, lon: 72.8295, zip: "400050" },
-  { name: "Ximending", city: "Taipei", region: "Asia", lat: 25.0424, lon: 121.5085, zip: "108" },
-  { name: "Tiong Bahru", city: "Singapore", region: "Asia", lat: 1.2847, lon: 103.8408, zip: "168981" },
-  { name: "Cihangir", city: "Istanbul", region: "Asia", lat: 41.0357, lon: 28.9851, zip: "34421" },
-  { name: "Thảo Điền", city: "Ho Chi Minh City", region: "Asia", lat: 10.8058, lon: 106.7341, zip: "700000" },
-  { name: "Xintiandi", city: "Shanghai", region: "Asia", lat: 31.2237, lon: 121.4692, zip: "200021" },
-  { name: "Hauz Khas", city: "New Delhi", region: "Asia", lat: 28.5494, lon: 77.2001, zip: "110016" },
-
-  // Africa
-  { name: "Bo-Kaap", city: "Cape Town", region: "Africa", lat: -33.9245, lon: 18.4108, zip: "8001" },
-  { name: "Maadi", city: "Cairo", region: "Africa", lat: 29.9602, lon: 31.2569, zip: "11728" },
-  { name: "Yoff", city: "Dakar", region: "Africa", lat: 14.7472, lon: -17.2422, zip: "9935" },
-  { name: "Westlands", city: "Nairobi", region: "Africa", lat: -1.2676, lon: 36.8108, zip: "00100" },
-
-  // Oceania
-  { name: "Newtown", city: "Sydney", region: "Oceania", lat: -33.8968, lon: 151.1796, zip: "2042" },
-  { name: "Fitzroy", city: "Melbourne", region: "Oceania", lat: -37.7971, lon: 144.9793, zip: "3065" },
-  { name: "Ponsonby", city: "Auckland", region: "Oceania", lat: -36.8536, lon: 174.746, zip: "1011" },
-];
+import { presetNeighborhoods, CUSTOM_COORDS_NAME, type Preset } from "@/lib/geo";
 
 export function OnboardingView() {
   const { user, setLocation, setView } = useApp();
@@ -87,6 +28,9 @@ export function OnboardingView() {
   const [busy, setBusy] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [query, setQuery] = useState("");
+  const [customMode, setCustomMode] = useState(false);
+  const [customLat, setCustomLat] = useState("");
+  const [customLon, setCustomLon] = useState("");
 
   const filtered = useMemo(() => {
     if (!query.trim()) return presetNeighborhoods;
@@ -109,6 +53,7 @@ export function OnboardingView() {
   }, [filtered]);
 
   function pickPreset(p: Preset) {
+    setCustomMode(false);
     setLat(p.lat);
     setLon(p.lon);
     setZip(p.zip);
@@ -116,15 +61,44 @@ export function OnboardingView() {
     toast.success(`Home base set to ${p.name}, ${p.city}`);
   }
 
+  function pickCustom() {
+    setCustomMode(true);
+    setLat(null);
+    setLon(null);
+    setNeighborhood("");
+  }
+
+  function applyCustom() {
+    const parsedLat = parseFloat(customLat);
+    const parsedLon = parseFloat(customLon);
+    if (Number.isNaN(parsedLat) || Number.isNaN(parsedLon)) {
+      toast.error("Please enter valid coordinates.");
+      return;
+    }
+    if (parsedLat < -90 || parsedLat > 90 || parsedLon < -180 || parsedLon > 180) {
+      toast.error("Latitude must be -90..90, longitude must be -180..180.");
+      return;
+    }
+    setLat(parsedLat);
+    setLon(parsedLon);
+    setNeighborhood(customNeighborhood || `Custom (${parsedLat.toFixed(4)}, ${parsedLon.toFixed(4)})`);
+    toast.success("Custom coordinates set.");
+  }
+
+  const customNeighborhood = neighborhood.startsWith("Custom")
+    ? ""
+    : neighborhood;
+
   function useMyLocation() {
     setDetecting(true);
+    setCustomMode(false);
     if (!("geolocation" in navigator)) {
       setTimeout(() => {
-        setLat(40.7282);
-        setLon(-73.9942);
-        setNeighborhood("Detected area");
+        setLat(null);
+        setLon(null);
+        setNeighborhood("");
         setDetecting(false);
-        toast.success("Home base detected (simulated).");
+        toast.info("Geolocation unavailable — please pick a neighborhood below.");
       }, 700);
       return;
     }
@@ -137,12 +111,11 @@ export function OnboardingView() {
         toast.success("Home base detected from your device.");
       },
       () => {
-        setLat(40.7282);
-        setLon(-73.9942);
-        setNeighborhood("Maple Heights, New York");
-        setZip("10010");
+        setLat(null);
+        setLon(null);
+        setNeighborhood("");
         setDetecting(false);
-        toast.info("Couldn't access GPS — set a fallback location.");
+        toast.info("Couldn't access GPS — please pick a neighborhood below.");
       },
       { timeout: 5000 }
     );
@@ -235,6 +208,72 @@ export function OnboardingView() {
                 className="pl-9"
               />
             </div>
+
+            {/* Custom coordinates */}
+            <button
+              type="button"
+              onClick={pickCustom}
+              className={`mb-3 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                customMode
+                  ? "border-accent bg-accent/10"
+                  : "border-border bg-background hover:border-primary/40 hover:bg-primary/5"
+              }`}
+            >
+              <div
+                className={`grid size-9 shrink-0 place-items-center rounded-lg ${
+                  customMode
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                <MapPin className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  Enter custom coordinates
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Type latitude &amp; longitude directly
+                </p>
+              </div>
+            </button>
+
+            {customMode && (
+              <div className="mb-4 grid gap-3 rounded-xl border border-border bg-secondary/20 p-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom-lat" className="text-xs">Latitude</Label>
+                  <Input
+                    id="custom-lat"
+                    type="number"
+                    step="any"
+                    value={customLat}
+                    onChange={(e) => setCustomLat(e.target.value)}
+                    placeholder="e.g. 51.505"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="custom-lon" className="text-xs">Longitude</Label>
+                  <Input
+                    id="custom-lon"
+                    type="number"
+                    step="any"
+                    value={customLon}
+                    onChange={(e) => setCustomLon(e.target.value)}
+                    placeholder="e.g. -0.09"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={applyCustom}
+                    className="w-full sm:w-auto"
+                  >
+                    Apply coordinates
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Scrollable grouped list */}
             <div className="max-h-72 space-y-4 overflow-y-auto scroll-fancy pr-1">

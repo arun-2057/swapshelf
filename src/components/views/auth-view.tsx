@@ -7,8 +7,20 @@ import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen, Dices, ArrowLeft, ArrowRight, Mail, Lock, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  BookOpen,
+  Dices,
+  ArrowLeft,
+  ArrowRight,
+  Mail,
+  Lock,
+  User,
+  MapPin,
+  Navigation,
+} from "lucide-react";
 import { toast } from "sonner";
+import { presetNeighborhoods, CUSTOM_COORDS_NAME, type Preset } from "@/lib/geo";
 
 export function AuthView({ mode }: { mode: "login" | "signup" }) {
   const { doLogin, doSignup, setView } = useApp();
@@ -16,8 +28,79 @@ export function AuthView({ mode }: { mode: "login" | "signup" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signupLat, setSignupLat] = useState<number | null>(null);
+  const [signupLon, setSignupLon] = useState<number | null>(null);
+  const [signupZip, setSignupZip] = useState("");
+  const [signupNeighborhood, setSignupNeighborhood] = useState("");
+  const [detecting, setDetecting] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customLat, setCustomLat] = useState("");
+  const [customLon, setCustomLon] = useState("");
 
   const isSignup = mode === "signup";
+
+  function pickPreset(p: Preset) {
+    setCustomMode(false);
+    setSignupLat(p.lat);
+    setSignupLon(p.lon);
+    setSignupZip(p.zip);
+    setSignupNeighborhood(`${p.name}, ${p.city}`);
+  }
+
+  function pickCustom() {
+    setCustomMode(true);
+    setSignupLat(null);
+    setSignupLon(null);
+    setSignupNeighborhood("");
+  }
+
+  function applyCustom() {
+    const parsedLat = parseFloat(customLat);
+    const parsedLon = parseFloat(customLon);
+    if (Number.isNaN(parsedLat) || Number.isNaN(parsedLon)) {
+      toast.error("Please enter valid coordinates.");
+      return;
+    }
+    if (parsedLat < -90 || parsedLat > 90 || parsedLon < -180 || parsedLon > 180) {
+      toast.error("Latitude must be -90..90, longitude must be -180..180.");
+      return;
+    }
+    setSignupLat(parsedLat);
+    setSignupLon(parsedLon);
+    setSignupNeighborhood(`Custom (${parsedLat.toFixed(4)}, ${parsedLon.toFixed(4)})`);
+    toast.success("Custom coordinates set.");
+  }
+
+  function detectLocation() {
+    setDetecting(true);
+    setCustomMode(false);
+    if (!("geolocation" in navigator)) {
+      setTimeout(() => {
+        setSignupLat(null);
+        setSignupLon(null);
+        setSignupNeighborhood("");
+        setDetecting(false);
+        toast.info("Geolocation unavailable — please pick a neighborhood below.");
+      }, 700);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setSignupLat(pos.coords.latitude);
+        setSignupLon(pos.coords.longitude);
+        setSignupNeighborhood("Detected area");
+        setDetecting(false);
+      },
+      () => {
+        setSignupLat(null);
+        setSignupLon(null);
+        setSignupNeighborhood("");
+        setDetecting(false);
+        toast.info("Couldn't access GPS — please pick a neighborhood below.");
+      },
+      { timeout: 5000 }
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,8 +113,12 @@ export function AuthView({ mode }: { mode: "login" | "signup" }) {
           setBusy(false);
           return;
         }
-        await doSignup(name.trim(), email.trim(), password);
-        toast.success("Welcome to SwapShelf! Let's set your home base.");
+        const location =
+          signupLat !== null && signupLon !== null
+            ? { latitude: signupLat, longitude: signupLon, zipCode: signupZip || undefined, neighborhood: signupNeighborhood || undefined }
+            : undefined;
+        await doSignup(name.trim(), email.trim(), password, location);
+        toast.success("Welcome to SwapShelf!");
       } else {
         await doLogin(email.trim(), password);
         toast.success("Welcome back!");
@@ -192,6 +279,108 @@ export function AuthView({ mode }: { mode: "login" | "signup" }) {
                   />
                 </div>
               </div>
+
+              {isSignup && (
+                <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    <MapPin className="mr-1 size-3.5 inline-block" />
+                    Set your home base (optional — you can change this later)
+                  </p>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={detectLocation}
+                    disabled={detecting}
+                  >
+                    <Navigation className="size-4" />
+                    {detecting ? "Detecting…" : "Use my current location"}
+                  </Button>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Or pick a neighborhood</Label>
+                    <Select
+                      value={
+                        signupLat !== null && !customMode
+                          ? `${signupLat},${signupLon}`
+                          : undefined
+                      }
+                      onValueChange={(val) => {
+                        if (val === CUSTOM_COORDS_NAME) {
+                          pickCustom();
+                          return;
+                        }
+                        const p = presetNeighborhoods.find(
+                          (n) => `${n.lat},${n.lon}` === val
+                        );
+                        if (p) pickPreset(p);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a neighborhood…" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-56">
+                        {presetNeighborhoods.map((p) => (
+                          <SelectItem
+                            key={`${p.name}-${p.city}`}
+                            value={`${p.lat},${p.lon}`}
+                          >
+                            {p.name}, {p.city}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_COORDS_NAME}>
+                          Custom coordinates…
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {customMode && (
+                    <div className="grid gap-3 rounded-xl border border-border bg-secondary/20 p-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-lat" className="text-xs">Latitude</Label>
+                        <Input
+                          id="signup-lat"
+                          type="number"
+                          step="any"
+                          value={customLat}
+                          onChange={(e) => setCustomLat(e.target.value)}
+                          placeholder="e.g. 51.505"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="signup-lon" className="text-xs">Longitude</Label>
+                        <Input
+                          id="signup-lon"
+                          type="number"
+                          step="any"
+                          value={customLon}
+                          onChange={(e) => setCustomLon(e.target.value)}
+                          placeholder="e.g. -0.09"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={applyCustom}
+                          className="w-full sm:w-auto"
+                        >
+                          Apply coordinates
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(signupLat !== null && signupLon !== null) && !customMode && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Home base: {signupNeighborhood || `${signupLat.toFixed(2)}, ${signupLon.toFixed(2)}`}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"

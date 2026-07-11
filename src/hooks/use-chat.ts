@@ -245,8 +245,9 @@ export function useChat({ loanId, userId, userName }: UseChatOptions) {
     const onDisconnect = () => setConnected(false);
     const onConnectError = () => setConnected(false);
 
-    // Reconnect listener: refetch DB history + flush outbox
     const onReconnect = () => {
+      setConnected(true);
+      socket.emit("join-loan", { loanId, userId, name: userName });
       void fetchHistory(loanId, { replace: false });
       void flushOutbox();
     };
