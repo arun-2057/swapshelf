@@ -4,6 +4,8 @@
 > game closet into a shared neighborhood library — lend what you've loved, borrow
 > what you've been curious about, and meet the readers and players next door.
 
+**Live app:** https://swapshelf-qw0uo8bry-luffy13.vercel.app
+
 ![SwapShelf landing page](public/landing-preview.png)
 
 ---
@@ -290,11 +292,11 @@ database **must be externally hosted** — the schema targets **PostgreSQL**
    `GET /api/cron/auto-close-zombies?secret=$CRON_SECRET` on a `0 3 * * *`
    schedule, reusing the `CRON_SECRET` env var.
 5. **Seed demo data** once after the first deploy (requires a logged-in user):
-   ```bash
-   curl -X POST https://<your-app>.vercel.app/api/seed \
-     -H "Content-Type: application/json" \
-     -b "swapshelf_session=<your-session-cookie>"
-   ```
+  ```bash
+  curl -X POST https://swapshelf-qw0uo8bry-luffy13.vercel.app/api/seed \
+    -H "Content-Type: application/json" \
+    -b "swapshelf_session=<your-session-cookie>"
+  ```
 
 The Prisma client is a cached singleton in `src/lib/db.ts` to avoid exhausting
 connections across Vercel's short-lived functions. SQLite-only pragmas are
